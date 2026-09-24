@@ -25,9 +25,33 @@ export let order_items = [
   { order_item_id: 2, order_id: 101, item_id: 4, quantity: 1, unit_price: 48, subtotal: 48 },
 ];
 
+// group: 'A' = 1-2 pax, 'B' = 3-6 pax, 'C' = 7+ pax
 export let queue_entries = [
-  { queue_id: 1, user_id: 1, party_size: 2, joined_at: '2026-09-22T18:00:00', status: 'waiting', called_at: null, seated_at: null },
+  { queue_id: 'A015', user_id: null, party_size: 1, group: 'A', joined_at: '2026-09-24T10:00:00', status: 'serving', called_at: null, seated_at: null },
+  { queue_id: 'A016', user_id: null, party_size: 2, group: 'A', joined_at: '2026-09-24T10:05:00', status: 'waiting', called_at: null, seated_at: null },
+  { queue_id: 'B027', user_id: null, party_size: 4, group: 'B', joined_at: '2026-09-24T10:01:00', status: 'serving', called_at: null, seated_at: null },
+  { queue_id: 'B028', user_id: null, party_size: 5, group: 'B', joined_at: '2026-09-24T10:06:00', status: 'waiting', called_at: null, seated_at: null },
+  { queue_id: 'C008', user_id: null, party_size: 8, group: 'C', joined_at: '2026-09-24T10:02:00', status: 'serving', called_at: null, seated_at: null },
 ];
+
+// counters so new queue IDs increment correctly per group
+export const queueCounters = { A: 17, B: 29, C: 9 };
+
+export function getGroupLabel(partySize) {
+  if (partySize <= 2) return 'A';
+  if (partySize <= 6) return 'B';
+  return 'C';
+}
+
+export function getGroupRange(group) {
+  if (group === 'A') return '1–2 People';
+  if (group === 'B') return '3–6 People';
+  return '7+ People';
+}
+
+export function getNowServing(group) {
+  return queue_entries.find(q => q.group === group && q.status === 'serving') || null;
+}
 
 export const restaurant_tables = [
   { table_id: 1, table_number: 1, capacity: 2, status: 'available' },
@@ -68,8 +92,10 @@ export function createOrder(userId, cartItems) {
 
 let nextQueueId = 10;
 export function joinQueue(userId, partySize) {
-  const queue_id = nextQueueId++;
-  queue_entries = [...queue_entries, { queue_id, user_id: userId, party_size: partySize, joined_at: new Date().toISOString(), status: 'waiting', called_at: null, seated_at: null }];
+  const group = getGroupLabel(partySize);
+  const counter = ++queueCounters[group];
+  const queue_id = `${group}${String(counter).padStart(3, '0')}`;
+  queue_entries = [...queue_entries, { queue_id, user_id: userId, party_size: partySize, group, joined_at: new Date().toISOString(), status: 'waiting', called_at: null, seated_at: null }];
   return queue_id;
 }
 
