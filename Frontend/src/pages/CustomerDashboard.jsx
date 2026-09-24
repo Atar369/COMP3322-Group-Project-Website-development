@@ -4,7 +4,7 @@ import { useAuth } from '../context/AuthContext';
 const actions = [
   { label: 'Book a Table',   desc: 'Reserve a table for your visit',       path: '/booking' },
   { label: 'Join Queue',     desc: 'Get in line and wait for a table',      path: '/queue'   },
-  { label: 'Browse Menu',    desc: 'View dishes and add items to your cart', path: '/menu'    },
+  { label: 'Start Ordering',    desc: 'View dishes and add items to your cart', path: '/menu'    },
   { label: 'View Cart',      desc: 'Review and place your order',           path: '/cart'    },
 ];
 
