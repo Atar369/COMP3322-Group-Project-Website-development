@@ -4,8 +4,11 @@ import { CartProvider } from './context/CartContext';
 import Navbar from './components/Navbar';
 import ProtectedRoute from './components/ProtectedRoute';
 
-import Login from './pages/Login';
-import Register from './pages/Register';
+import Welcome from './pages/Welcome';
+import CustomerLogin from './pages/CustomerLogin';
+import StaffLogin from './pages/StaffLogin';
+import CustomerRegister from './pages/CustomerRegister';
+import StaffRegister from './pages/StaffRegister';
 import CustomerDashboard from './pages/CustomerDashboard';
 import Menu from './pages/Menu';
 import Cart from './pages/Cart';
@@ -23,7 +26,7 @@ function Home() {
   const { user } = useAuth();
   if (user?.role === 'manager') return <Navigate to="/manager/dashboard" replace />;
   if (user) return <Navigate to="/dashboard" replace />;
-  return <Navigate to="/login" replace />;
+  return <Navigate to="/welcome" replace />;
 }
 
 export default function App() {
@@ -35,8 +38,12 @@ export default function App() {
             <Navbar />
             <Routes>
               <Route path="/" element={<Home />} />
-              <Route path="/login" element={<Login />} />
-              <Route path="/register" element={<Register />} />
+              <Route path="/welcome" element={<Welcome />} />
+              <Route path="/login" element={<Navigate to="/welcome" replace />} />
+              <Route path="/login/customer" element={<CustomerLogin />} />
+              <Route path="/login/staff" element={<StaffLogin />} />
+              <Route path="/register/customer" element={<CustomerRegister />} />
+              <Route path="/register/staff" element={<StaffRegister />} />
 
               <Route path="/dashboard" element={<ProtectedRoute role="customer"><CustomerDashboard /></ProtectedRoute>} />
               <Route path="/menu" element={<ProtectedRoute role="customer"><Menu /></ProtectedRoute>} />

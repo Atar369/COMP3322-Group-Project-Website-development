@@ -14,12 +14,11 @@ export function AuthProvider({ children }) {
     return { user: found };
   }
 
-  function register(name, email, phone, password) {
+  function register(name, email, phone, password, role = 'customer') {
     const exists = users.some(u => u.email === email);
     if (exists) return { error: 'Email already registered.' };
-    const newUser = { user_id: users.length + 1, name, email, phone, password_hash: password, role: 'customer' };
+    const newUser = { user_id: users.length + 1, name, email, phone, password_hash: password, role };
     users.push(newUser);
-    setUser(newUser);
     return { user: newUser };
   }
 

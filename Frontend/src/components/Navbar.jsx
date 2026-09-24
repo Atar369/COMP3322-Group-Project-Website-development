@@ -7,7 +7,7 @@ export default function Navbar() {
 
   function handleLogout() {
     logout();
-    navigate('/login');
+    navigate('/welcome');
   }
 
   return (
@@ -15,8 +15,7 @@ export default function Navbar() {
       <Link to="/" className="brand">The Kitchen Ledger</Link>
       <div className="nav-links">
         {!user && <>
-          <Link to="/login">Log in</Link>
-          <Link to="/register">Register</Link>
+          <Link to="/welcome">Log in</Link>
         </>}
         {user && user.role === 'customer' && <>
           <Link to="/menu">Menu</Link>
