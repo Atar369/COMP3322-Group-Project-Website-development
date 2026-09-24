@@ -1,4 +1,4 @@
-const STEPS = ['pending', 'preparing', 'ready', 'completed'];
+const STEPS = ['pending', 'preparing', 'ready', 'arrived', 'pay now'];
 
 export default function OrderStatusTracker({ status }) {
   const currentIndex = STEPS.indexOf(status);

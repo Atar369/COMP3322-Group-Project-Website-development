@@ -17,7 +17,7 @@ export const menu_items = [
 ];
 
 export let orders = [
-  { order_id: 101, user_id: 1, order_time: '2026-09-22T18:20:00', status: 'preparing', total_amount: 236, payment_status: 'paid' },
+  { order_id: 101, user_id: 1, booking_id: null, queue_id: null, order_time: '2026-09-22T18:20:00', status: 'preparing', total_amount: 236, payment_status: 'paid' },
 ];
 
 export let order_items = [
@@ -26,12 +26,13 @@ export let order_items = [
 ];
 
 // group: 'A' = 1-2 pax, 'B' = 3-6 pax, 'C' = 7+ pax
+// A015 & B027 are assigned to demo customer (user_id 1) so the menu page demo IDs work
 export let queue_entries = [
-  { queue_id: 'A015', user_id: null, party_size: 1, group: 'A', joined_at: '2026-09-24T10:00:00', status: 'serving', called_at: null, seated_at: null },
+  { queue_id: 'A015', user_id: 1, party_size: 1, group: 'A', joined_at: '2026-09-24T10:00:00', status: 'serving', called_at: '2026-09-24T10:10:00', seated_at: null },
   { queue_id: 'A016', user_id: null, party_size: 2, group: 'A', joined_at: '2026-09-24T10:05:00', status: 'waiting', called_at: null, seated_at: null },
-  { queue_id: 'B027', user_id: null, party_size: 4, group: 'B', joined_at: '2026-09-24T10:01:00', status: 'serving', called_at: null, seated_at: null },
+  { queue_id: 'B027', user_id: null, party_size: 4, group: 'B', joined_at: '2026-09-24T10:01:00', status: 'serving', called_at: '2026-09-24T10:11:00', seated_at: null },
   { queue_id: 'B028', user_id: null, party_size: 5, group: 'B', joined_at: '2026-09-24T10:06:00', status: 'waiting', called_at: null, seated_at: null },
-  { queue_id: 'C008', user_id: null, party_size: 8, group: 'C', joined_at: '2026-09-24T10:02:00', status: 'serving', called_at: null, seated_at: null },
+  { queue_id: 'C008', user_id: null, party_size: 8, group: 'C', joined_at: '2026-09-24T10:02:00', status: 'serving', called_at: '2026-09-24T10:12:00', seated_at: null },
 ];
 
 // counters so new queue IDs increment correctly per group
@@ -83,11 +84,42 @@ export const dashboardStats = {
 };
 
 let nextOrderId = 200;
-export function createOrder(userId, cartItems) {
+export function createOrder(userId, cartItems, bookingId = null, queueId = null) {
   const order_id = nextOrderId++;
   const total_amount = cartItems.reduce((sum, i) => sum + i.price * i.qty, 0);
-  orders = [...orders, { order_id, user_id: userId, order_time: new Date().toISOString(), status: 'pending', total_amount, payment_status: 'unpaid' }];
+  orders = [...orders, { order_id, user_id: userId, booking_id: bookingId, queue_id: queueId, order_time: new Date().toISOString(), status: 'pending', total_amount, payment_status: 'unpaid' }];
   return order_id;
+}
+
+export function getBooking(bookingId) {
+  return bookings.find(b => b.booking_id === Number(bookingId));
+}
+
+export function getQueue(queueId) {
+  return queue_entries.find(q => q.queue_id === queueId);
+}
+
+export function getTable(tableId) {
+  return restaurant_tables.find(t => t.table_id === tableId);
+}
+
+export function isQueueCalled(queueId) {
+  const q = getQueue(queueId);
+  return q && (q.status === 'serving' || q.status === 'seated');
+}
+
+export function getNowCalledInGroup(group) {
+  const serving = queue_entries.filter(q => q.group === group && q.status === 'serving')
+    .sort((a, b) => new Date(a.called_at) - new Date(b.called_at));
+  return serving.length > 0 ? serving[0].queue_id : null;
+}
+
+export function markOrderPaid(orderId) {
+  orders = orders.map(o => o.order_id === orderId ? { ...o, payment_status: 'paid' } : o);
+}
+
+export function getTodayPaidOrders() {
+  return orders.filter(o => o.payment_status === 'paid');
 }
 
 let nextQueueId = 10;

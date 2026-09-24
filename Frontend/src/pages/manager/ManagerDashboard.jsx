@@ -1,15 +1,17 @@
 import { LineChart, Line, BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
-import { dashboardStats } from '../../data/mockData';
+import { dashboardStats, getTodayPaidOrders } from '../../data/mockData';
 
 export default function ManagerDashboard() {
-  const { todayRevenue, revenueTrend, bestSellers, ordersByHour } = dashboardStats;
+  const { revenueTrend, bestSellers, ordersByHour } = dashboardStats;
+  const paidOrders = getTodayPaidOrders();
+  const todayRevenue = paidOrders.reduce((sum, o) => sum + o.total_amount, 0);
 
   return (
     <div className="page">
       <h1>Dashboard</h1>
       <div className="stat" style={{ marginBottom: 20, maxWidth: 220 }}>
         <div className="num">${todayRevenue}</div>
-        <div className="label">Today's revenue</div>
+        <div className="label">Today's revenue (from paid orders)</div>
       </div>
 
       <div className="dash-grid">
