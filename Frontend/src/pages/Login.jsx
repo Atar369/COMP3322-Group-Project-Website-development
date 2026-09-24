@@ -13,7 +13,7 @@ export default function Login() {
     e.preventDefault();
     const result = login(email, password);
     if (result.error) { setError(result.error); return; }
-    navigate(result.user.role === 'manager' ? '/manager/dashboard' : '/menu');
+    navigate(result.user.role === 'manager' ? '/manager/dashboard' : '/dashboard');
   }
 
   return (

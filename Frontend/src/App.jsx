@@ -6,6 +6,7 @@ import ProtectedRoute from './components/ProtectedRoute';
 
 import Login from './pages/Login';
 import Register from './pages/Register';
+import CustomerDashboard from './pages/CustomerDashboard';
 import Menu from './pages/Menu';
 import Cart from './pages/Cart';
 import OrderStatus from './pages/OrderStatus';
@@ -21,7 +22,7 @@ import ManagerDashboard from './pages/manager/ManagerDashboard';
 function Home() {
   const { user } = useAuth();
   if (user?.role === 'manager') return <Navigate to="/manager/dashboard" replace />;
-  if (user) return <Navigate to="/menu" replace />;
+  if (user) return <Navigate to="/dashboard" replace />;
   return <Navigate to="/login" replace />;
 }
 
@@ -37,6 +38,7 @@ export default function App() {
               <Route path="/login" element={<Login />} />
               <Route path="/register" element={<Register />} />
 
+              <Route path="/dashboard" element={<ProtectedRoute role="customer"><CustomerDashboard /></ProtectedRoute>} />
               <Route path="/menu" element={<ProtectedRoute role="customer"><Menu /></ProtectedRoute>} />
               <Route path="/cart" element={<ProtectedRoute role="customer"><Cart /></ProtectedRoute>} />
               <Route path="/orders/:id" element={<ProtectedRoute role="customer"><OrderStatus /></ProtectedRoute>} />
