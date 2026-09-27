@@ -11,7 +11,7 @@ app.get("/api/health", (_request, response) => {
   response.json({ status: "ok" });
 });
 
-app.use("/booking", require("./routes/bookingRoutes"))
+app.use("/booking", require("./routes/bookingRoutes"));
 
 app.listen(port, () => {
   console.log(`Backend listening on port ${port}`);
