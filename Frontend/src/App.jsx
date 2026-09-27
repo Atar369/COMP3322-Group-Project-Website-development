@@ -26,6 +26,7 @@ import ProfilePage from './pages/ProfilePage';
 import ManagerMenu from './pages/manager/ManagerMenu';
 import ManagerOrders from './pages/manager/ManagerOrders';
 import ManagerQueue from './pages/manager/ManagerQueue';
+import ManagerQueueHistory from './pages/manager/ManagerQueueHistory';
 import ManagerBookings from './pages/manager/ManagerBookings';
 import ManagerDashboard from './pages/manager/ManagerDashboard';
 
@@ -64,11 +65,12 @@ export default function App() {
               <Route path="/booking" element={<ProtectedRoute role="customer"><Booking /></ProtectedRoute>} />
               <Route path="/booking-management" element={<ProtectedRoute role="customer"><BookingManagement /></ProtectedRoute>} />
               <Route path="/booking-history" element={<ProtectedRoute role="customer"><BookingHistory /></ProtectedRoute>} />
-              <Route path="/profile" element={<ProtectedRoute role="customer"><ProfilePage /></ProtectedRoute>} />
+              <Route path="/profile" element={<ProtectedRoute><ProfilePage /></ProtectedRoute>} />
 
               <Route path="/manager/menu" element={<ProtectedRoute role="manager"><ManagerMenu /></ProtectedRoute>} />
               <Route path="/manager/orders" element={<ProtectedRoute role="manager"><ManagerOrders /></ProtectedRoute>} />
               <Route path="/manager/queue" element={<ProtectedRoute role="manager"><ManagerQueue /></ProtectedRoute>} />
+              <Route path="/manager/queue-history" element={<ProtectedRoute role="manager"><ManagerQueueHistory /></ProtectedRoute>} />
               <Route path="/manager/bookings" element={<ProtectedRoute role="manager"><ManagerBookings /></ProtectedRoute>} />
               <Route path="/manager/dashboard" element={<ProtectedRoute role="manager"><ManagerDashboard /></ProtectedRoute>} />
             </Routes>

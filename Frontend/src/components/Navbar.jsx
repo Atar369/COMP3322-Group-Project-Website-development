@@ -51,7 +51,7 @@ export default function Navbar() {
           ]} />
           <Dropdown label="Order" links={[
             { to: '/menu', label: 'New Order' },
-            { to: '/order-management', label: 'Order Management' },
+            { to: '/order-management', label: 'Cart' },
             { to: '/order-history', label: 'Order History' },
           ]} />
           <Dropdown label="Queue" links={[
@@ -70,9 +70,13 @@ export default function Navbar() {
         {user?.role === 'manager' && <>
           <Link to="/manager/menu">Menu</Link>
           <Link to="/manager/orders">Orders</Link>
-          <Link to="/manager/queue">Queue</Link>
+          <Dropdown label="Queue" links={[
+            { to: '/manager/queue', label: 'Queue Management' },
+            { to: '/manager/queue-history', label: 'Queue History' },
+          ]} />
           <Link to="/manager/bookings">Bookings</Link>
           <Link to="/manager/dashboard">Dashboard</Link>
+          <Link to="/profile">Personal Information</Link>
           <button onClick={handleLogout}>Log out</button>
         </>}
       </div>

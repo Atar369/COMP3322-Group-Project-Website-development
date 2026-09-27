@@ -28,11 +28,14 @@ export let order_items = [
 // group: 'A' = 1-2 pax, 'B' = 3-6 pax, 'C' = 7+ pax
 // A015 & B027 are assigned to demo customer (user_id 1) so the menu page demo IDs work
 export let queue_entries = [
-  { queue_id: 'A015', user_id: 1, party_size: 1, group: 'A', joined_at: '2026-09-24T10:00:00', status: 'serving', called_at: '2026-09-24T10:10:00', seated_at: null },
-  { queue_id: 'A016', user_id: null, party_size: 2, group: 'A', joined_at: '2026-09-24T10:05:00', status: 'waiting', called_at: null, seated_at: null },
-  { queue_id: 'B027', user_id: null, party_size: 4, group: 'B', joined_at: '2026-09-24T10:01:00', status: 'serving', called_at: '2026-09-24T10:11:00', seated_at: null },
-  { queue_id: 'B028', user_id: null, party_size: 5, group: 'B', joined_at: '2026-09-24T10:06:00', status: 'waiting', called_at: null, seated_at: null },
-  { queue_id: 'C008', user_id: null, party_size: 8, group: 'C', joined_at: '2026-09-24T10:02:00', status: 'serving', called_at: '2026-09-24T10:12:00', seated_at: null },
+  { queue_id: 'A015', user_id: 1,    party_size: 1, group: 'A', joined_at: '2026-09-24T10:00:00', status: 'serving', called_at: '2026-09-24T10:10:00', seated_at: null,                table_id: null },
+  { queue_id: 'A016', user_id: null, party_size: 2, group: 'A', joined_at: '2026-09-24T10:05:00', status: 'waiting', called_at: null,                   seated_at: null,                table_id: null },
+  { queue_id: 'B027', user_id: null, party_size: 4, group: 'B', joined_at: '2026-09-24T10:01:00', status: 'serving', called_at: '2026-09-24T10:11:00', seated_at: null,                table_id: null },
+  { queue_id: 'B028', user_id: null, party_size: 5, group: 'B', joined_at: '2026-09-24T10:06:00', status: 'waiting', called_at: null,                   seated_at: null,                table_id: null },
+  { queue_id: 'C008', user_id: null, party_size: 8, group: 'C', joined_at: '2026-09-24T10:02:00', status: 'serving', called_at: '2026-09-24T10:12:00', seated_at: null,                table_id: null },
+  { queue_id: 'A012', user_id: null, party_size: 2, group: 'A', joined_at: '2026-09-24T09:10:00', status: 'seated',  called_at: '2026-09-24T09:20:00', seated_at: '2026-09-24T09:25:00', table_id: 1 },
+  { queue_id: 'A013', user_id: null, party_size: 1, group: 'A', joined_at: '2026-09-24T09:15:00', status: 'seated',  called_at: '2026-09-24T09:30:00', seated_at: '2026-09-24T09:35:00', table_id: 2 },
+  { queue_id: 'B024', user_id: null, party_size: 3, group: 'B', joined_at: '2026-09-24T09:05:00', status: 'seated',  called_at: '2026-09-24T09:40:00', seated_at: '2026-09-24T09:45:00', table_id: 3 },
 ];
 
 // counters so new queue IDs increment correctly per group
@@ -54,12 +57,18 @@ export function getNowServing(group) {
   return queue_entries.find(q => q.group === group && q.status === 'serving') || null;
 }
 
+// Tables numbered 1-10 left-to-right, top-to-bottom; col/row are 1-indexed grid positions
 export const restaurant_tables = [
-  { table_id: 1, table_number: 1, capacity: 2, status: 'available' },
-  { table_id: 2, table_number: 2, capacity: 2, status: 'available' },
-  { table_id: 3, table_number: 3, capacity: 4, status: 'booked' },
-  { table_id: 4, table_number: 4, capacity: 4, status: 'available' },
-  { table_id: 5, table_number: 5, capacity: 6, status: 'available' },
+  { table_id: 1,  table_number: 1,  capacity: 4, status: 'available', col: 1, row: 1 },
+  { table_id: 2,  table_number: 2,  capacity: 4, status: 'available', col: 2, row: 1 },
+  { table_id: 3,  table_number: 3,  capacity: 4, status: 'booked',    col: 3, row: 1 },
+  { table_id: 4,  table_number: 4,  capacity: 6, status: 'available', col: 4, row: 1 },
+  { table_id: 5,  table_number: 5,  capacity: 2, status: 'available', col: 1, row: 2 },
+  { table_id: 6,  table_number: 6,  capacity: 4, status: 'available', col: 2, row: 2 },
+  { table_id: 7,  table_number: 7,  capacity: 4, status: 'booked',    col: 3, row: 2 },
+  { table_id: 8,  table_number: 8,  capacity: 8, status: 'available', col: 4, row: 2 },
+  { table_id: 9,  table_number: 9,  capacity: 2, status: 'available', col: 1, row: 3 },
+  { table_id: 10, table_number: 10, capacity: 6, status: 'available', col: 2, row: 3 },
 ];
 
 export let bookings = [
@@ -120,6 +129,19 @@ export function markOrderPaid(orderId) {
 
 export function getTodayPaidOrders() {
   return orders.filter(o => o.payment_status === 'paid');
+}
+
+export function isTableAvailableAt(tableId, date, time) {
+  return !bookings.some(b =>
+    b.table_id === tableId &&
+    b.booking_date === date &&
+    b.booking_time === time &&
+    b.status !== 'cancelled'
+  );
+}
+
+export function getAvailableTablesFor(date, time, partySize) {
+  return restaurant_tables.filter(t => t.capacity >= partySize && t.capacity <= partySize * 2 && isTableAvailableAt(t.table_id, date, time));
 }
 
 let nextQueueId = 10;
