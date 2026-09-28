@@ -29,7 +29,7 @@ async function create(request, response) {
     return response.status(201).json({message: "The table is booked successfully.", bookingId: result.insertId});
     
   } catch (error) {
-    console.error("datebase error:", error);
+    console.error("database error:", error);
     return response.status(500).json({error: "Please try again later."});
   }
 }
