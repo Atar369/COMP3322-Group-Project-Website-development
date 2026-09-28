@@ -1,20 +1,50 @@
-# React + Express Demo
+# The Kitchen Ledger
 
-A small full-stack project for demonstrating how a React form sends data to a Node.js/Express backend.
+A restaurant queuing, table booking, and ordering web app for a single virtual restaurant. Customers can browse the menu, place orders, join the queue, and book tables. Managers can manage the menu, orders, queue, and bookings, and view a sales dashboard.
 
-## Run with Docker Compose
+## Tech stack
 
-On the Ubuntu LXC container, install Docker and the Compose plugin, then run:
+- **Frontend:** React (Vite), React Router, Recharts, Socket.io client
+- **Backend:** Node.js + Express (REST API + Socket.io)
+- **Database:** MySQL 8
+- **Deployment:** Docker Compose on a Linux VM
 
-```bash
-docker compose up --build
+## Project structure
+
+```
+.
+├── frontend/          React SPA + Dockerfile + nginx.conf
+├── backend/           Express API + Dockerfile
+├── database/init/     SQL schema and seed data (runs on first DB start)
+├── docker-compose.yml
+└── .env.example
 ```
 
-Open <http://localhost:3000> (or the container host's IP address on port `3000`).
+## Run with Docker Compose (recommended)
 
-The frontend container runs the Vite development server on container port `3000`. Compose publishes the same port on the host, so students use `localhost:3000`. Vite proxies `/api` requests to the backend service at `backend:5000`. The backend receives the form data, logs it, and returns a JSON response.
+Requirements: Docker and the Docker Compose plugin.
 
-This Vite-based container is intentionally simple for the classroom demonstration. A production deployment would normally build the static frontend and serve it with a production web server or hosting platform.
+1. Copy the environment template and fill in your own values:
+
+```bash
+   cp .env.example .env
+```
+
+   | Variable           | Description                     |
+   | ------------------ | ------------------------------- |
+   | `DB_ROOT_PASSWORD` | MySQL root password             |
+   | `DB_NAME`          | Database name (`restaurant_app`) |
+   | `JWT_SECRET`       | Secret used to sign login tokens |
+
+2. Build and start all services:
+
+```bash
+   docker compose up --build
+```
+
+3. Open <http://localhost> (or the server's IP address on port 80).
+
+How it works: the frontend container serves the built React app with nginx and forwards `/api` and `/socket.io` requests to the `backend` service. The backend connects to the `db` service. On the first start, MySQL runs the scripts in `database/init/` automatically, so no manual import is needed. Only the frontend port is exposed to the host.
 
 To stop the services:
 
@@ -22,9 +52,17 @@ To stop the services:
 docker compose down
 ```
 
+To reset the database (deletes all data and re-runs the SQL scripts):
+
+```bash
+docker compose down -v
+```
+
 ## Run locally without Docker
 
-In one terminal:
+Requirements: Node.js 20+ and a running MySQL 8 instance with the scripts in `database/init/` imported.
+
+Backend (in one terminal):
 
 ```bash
 cd backend
@@ -32,7 +70,7 @@ npm install
 npm start
 ```
 
-In another terminal:
+Frontend (in another terminal):
 
 ```bash
 cd frontend
@@ -40,4 +78,16 @@ npm install
 npm run dev
 ```
 
-The local Vite server is available at <http://localhost:3000>. Outside Docker, the proxy falls back to `http://localhost:3000`.
+The Vite dev server runs at <http://localhost:5173> and proxies `/api` and `/socket.io` to the backend at `http://localhost:5000`.
+
+## Demo accounts
+
+| Role     | Email                 | Password     |
+| -------- | --------------------- | ------------ |
+| Customer | alice@example.com     | [password]   |
+| Manager  | manager@example.com   | [password]   |
+
+## Notes
+
+- Never commit `.env` or real credentials. Only `.env.example` belongs in the repo.
+- Credits for third-party code or components are listed on the app's credits page.
