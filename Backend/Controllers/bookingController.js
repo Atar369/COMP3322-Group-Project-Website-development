@@ -17,8 +17,8 @@ async function create(request, response) {
         AND status = 'confirmed'
     ) AS is_booked;`;
 
-    const [results] = await db.query(checkConflict, [table_id, booking_date, booking_time]);
-    const isBooked = results[0].is_booked;
+    const [rows] = await db.query(checkConflict, [table_id, booking_date, booking_time]);
+    const isBooked = rows[0].is_booked;
 
     if (isBooked === 1) {
       return response.status(409).json({error: "The table is already reserved for this timeslot."});
