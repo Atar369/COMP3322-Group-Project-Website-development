@@ -1,7 +1,7 @@
 -- MySQL 8.0.16+ (CHECK constraints are enforced from 8.0.16).
-CREATE DATABASE IF NOT EXISTS comp3322_restaurant
-  CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci;
-USE comp3322_restaurant;
+-- CREATE DATABASE IF NOT EXISTS comp3322_restaurant
+--   CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci;
+-- USE comp3322_restaurant;
 
 CREATE TABLE users (
   user_id INT UNSIGNED NOT NULL AUTO_INCREMENT,

@@ -12,7 +12,7 @@ mysql -u YOUR_USER -p < database/seed.sql
 mysql -u YOUR_USER -p < database/queries.sql
 ```
 
-`schema.sql` creates `comp3322_restaurant`; `seed.sql` assumes its tables are empty and is intended to run once. The four sample `password_hash` values are clearly marked **dummy placeholders** and cannot be used to log in. Before testing authentication, replace them with hashes made by the backend's password library. Never store or log plaintext passwords.
+`schema.sql` creates database; `seed.sql` assumes its tables are empty and is intended to run once. The four sample `password_hash` values are clearly marked **dummy placeholders** and cannot be used to log in. Before testing authentication, replace them with hashes made by the backend's password library. Never store or log plaintext passwords.
 
 The sample orders use the date on which the seed runs so the “today” queries show results. Prices are example amounts in one currency chosen by the group; the schema does not store a currency code.
 

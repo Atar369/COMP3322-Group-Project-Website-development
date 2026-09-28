@@ -1,5 +1,5 @@
 -- Run once after schema.sql on an empty database. All names and contacts are fictional.
-USE comp3322_restaurant;
+-- USE comp3322_restaurant;
 
 INSERT INTO users (name, email, phone, password_hash, role) VALUES
   ('Alex Example', 'alex@example.test', '+85200000001', 'DUMMY_HASH_REPLACE_BEFORE_LOGIN_001', 'customer'),

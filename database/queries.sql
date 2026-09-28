@@ -1,4 +1,4 @@
-USE comp3322_restaurant;
+-- USE comp3322_restaurant;
 
 -- Example inputs for queries 2, 3, and 10. Replace with backend parameters.
 SET @customer_id = 1;
