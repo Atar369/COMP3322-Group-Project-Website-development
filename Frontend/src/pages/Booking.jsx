@@ -1,5 +1,5 @@
-import { useState, useMemo } from 'react';
-import { restaurant_tables, createBooking, getAvailableTablesFor } from '../data/mockData';
+import { useState, useMemo, useEffect } from 'react';
+// import { restaurant_tables, createBooking, getAvailableTablesFor } from '../data/mockData';
 import { useAuth } from '../context/AuthContext';
 
 export default function Booking() {
@@ -11,11 +11,31 @@ export default function Booking() {
   const [noPreference, setNoPreference] = useState(false);
   const [request, setRequest] = useState('');
   const [result, setResult] = useState(null);
+  const [allTables, setAllTables] = useState([]);
+  const [availableTables, setAvailableTables] = useState([]);
+  const [refresh, setRefresh] = useState(0);
 
-  const availableTables = useMemo(
-    () => date && time && partySize ? getAvailableTablesFor(date, time, partySize) : [],
-    [date, time, partySize]
-  );
+  useEffect(() => {
+    fetch('/api/booking/tables')
+      .then(r => r.json())
+      .then(d => setAllTables(Array.isArray(d) ? d : []))
+      .catch(() => setAllTables([]));
+  }, []);
+
+  useEffect(() => {
+    if (!date || !time || !partySize) { setAvailableTables([]); return; }
+    let stale = false;
+    fetch(`/api/booking/availability?date=${date}&time=${time}&party_size=${partySize}`)
+      .then(r => r.json())
+      .then(d => { if (!stale) setAvailableTables(Array.isArray(d) ? d : []); })
+      .catch(() => { if (!stale) setAvailableTables([]); });
+    return () => { stale = true; };
+  }, [date, time, partySize, refresh]);
+
+//  const availableTables = useMemo(
+//    () => date && time && partySize ? getAvailableTablesFor(date, time, partySize) : [],
+//    [date, time, partySize]
+//  );
 
   // When no preference is checked, auto-assign the first available table
   const effectiveTableId = noPreference && availableTables.length > 0 ? availableTables[0].table_id : tableId;
@@ -26,17 +46,40 @@ export default function Booking() {
     setTableId(null);
   }
 
-  function handleSubmit(e) {
+  async function handleSubmit(e) {
     e.preventDefault();
     if (!date || !time) { setResult({ error: 'Select date and time first.' }); return; }
     if (!effectiveTableId) { setResult({ error: noPreference ? 'No available tables for this slot.' : 'Select a table first.' }); return; }
-    const res = createBooking(user.user_id, effectiveTableId, date, time, partySize, request);
-    setResult(res);
+
+    try {
+      const res = await fetch('/api/booking', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          user_id: user.user_id,
+          table_id: effectiveTableId,
+          booking_date: date,
+          booking_time: time,
+          party_size: partySize,
+          special_request: request,
+        }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setResult({ bookingId: data.bookingId });
+        setTableId(null);
+        setRefresh(n => n + 1);
+      } else {
+        setResult({ error: data.error || 'Booking failed.' });
+      }
+    } catch {
+      setResult({ error: 'Could not reach the server.' });
+    }
   }
 
   const displayTables = useMemo(
-    () => restaurant_tables.slice().sort((a, b) => a.row !== b.row ? a.row - b.row : a.col - b.col),
-    []
+    () => allTables.slice().sort((a, b) => a.table_number - b.table_number),
+    [allTables]
   );
 
   return (
@@ -130,7 +173,7 @@ export default function Booking() {
         </div>
 
         {result?.error && <p className="error-text">{result.error}</p>}
-        {result?.booking_id && <p style={{ color: 'var(--green)', fontWeight: 600 }}>Booking confirmed — #{result.booking_id}</p>}
+        {result?.bookingId && <p style={{ color: 'var(--green)', fontWeight: 600 }}>Booking confirmed — #{result.bookingId}</p>}
 
         <button className="btn" type="submit">Confirm booking</button>
       </form>

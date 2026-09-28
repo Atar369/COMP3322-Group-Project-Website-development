@@ -1,9 +1,17 @@
-import { bookings } from '../data/mockData';
+import { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 
 export default function BookingHistory() {
   const { user } = useAuth();
-  const userBookings = bookings.filter(b => b.user_id === user.user_id);
+  const [userBookings, setUserBookings] = useState([]);
+
+  useEffect(() => {
+    if (!user) return;
+    fetch(`/api/booking/user/${user.user_id}`)
+      .then(r => r.json())
+      .then(d => setUserBookings(Array.isArray(d) ? d : []))
+      .catch(() => setUserBookings([]));
+  }, [user]);
 
   return (
     <div className="page">

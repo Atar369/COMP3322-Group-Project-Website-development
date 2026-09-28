@@ -11,8 +11,8 @@ app.get("/api/health", (_request, response) => {
   response.json({ status: "ok" });
 });
 
-// Re-enable once controllers are pushed:
-// app.use("/api/booking", require("./Routes/bookingRoutes"));
+app.use("/api/booking", require("./Routes/bookingRoutes"));
+app.use('/api/auth', require('./Routes/authRoutes'));
 
 app.listen(port, () => {
   console.log(`Backend listening on port ${port}`);
