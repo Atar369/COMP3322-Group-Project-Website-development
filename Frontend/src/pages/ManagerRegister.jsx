@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 
-export default function StaffRegister() {
+export default function ManagerRegister() {
   const [form, setForm] = useState({ name: '', email: '', phone: '', password: '' });
   const [error, setError] = useState('');
   const { register } = useAuth();
@@ -14,12 +14,12 @@ export default function StaffRegister() {
     e.preventDefault();
     const result = await register(form.name, form.email, form.phone, form.password, 'manager');
     if (result.error) { setError(result.error); return; }
-    navigate('/login/staff');
+    navigate('/login/manager');
   }
 
   return (
     <div className="page" style={{ maxWidth: 380 }}>
-      <h1>Staff Registration</h1>
+      <h1>Manager Registration</h1>
       <form onSubmit={handleSubmit}>
         <div className="field">
           <label>Full name</label>
@@ -40,7 +40,7 @@ export default function StaffRegister() {
         {error && <p className="error-text">{error}</p>}
         <button className="btn" type="submit">Register</button>
       </form>
-      <p style={{ marginTop: 16 }}>Already have an account? <Link to="/login/staff">Log in</Link></p>
+      <p style={{ marginTop: 16 }}>Already have an account? <Link to="/login/manager">Log in</Link></p>
     </div>
   );
 }

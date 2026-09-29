@@ -14,6 +14,7 @@ export default function Booking() {
   const [allTables, setAllTables] = useState([]);
   const [availableTables, setAvailableTables] = useState([]);
   const [refresh, setRefresh] = useState(0);
+  
 
   useEffect(() => {
     fetch('/api/booking/tables')
@@ -82,6 +83,8 @@ export default function Booking() {
     [allTables]
   );
 
+  const todayStr = new Date().toISOString().slice(0, 10); // "2026-09-30"
+
   return (
     <div className="page" style={{ maxWidth: 900 }}>
       <h1>Book a table</h1>
@@ -89,11 +92,24 @@ export default function Booking() {
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12, marginBottom: 4 }}>
           <div className="field" style={{ margin: 0 }}>
             <label>Date</label>
-            <input type="date" value={date} onChange={e => setDate(e.target.value)} required />
+            <input type="date" min={todayStr} value={date} onChange={e => setDate(e.target.value)} required />
           </div>
           <div className="field" style={{ margin: 0 }}>
             <label>Time</label>
-            <input type="time" value={time} onChange={e => setTime(e.target.value)} required />
+            {/*<input type="time" value={time} onChange={e => setTime(e.target.value)} required /> */}
+            <select value={time} onChange={e => setTime(e.target.value)} required>
+              {[
+                '10:00', '10:30', '11:00', '11:30',
+                '12:00', '12:30', '13:00', '13:30',
+                '14:00', '14:30', '15:00', '15:30',
+                '16:00', '16:30', '17:00', '17:30',
+                '18:00', '18:30', '19:00', '19:30',
+                '20:00', '20:30', '21:00', '21:30',
+                '22:00',
+              ].map(t => (
+                <option key={t} value={t}>{t}</option>
+              ))}
+            </select>
           </div>
           <div className="field" style={{ margin: 0 }}>
             <label>Party size</label>

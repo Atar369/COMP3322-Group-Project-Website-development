@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 
-export default function StaffLogin() {
+export default function ManagerLogin() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
@@ -16,13 +16,13 @@ export default function StaffLogin() {
     if (result.user.role === 'manager') {
       navigate('/manager/dashboard');
     } else {
-      setError('This account is not a staff account.');
+      setError('This account is not a manager account.');
     }
   }
 
   return (
     <div className="page" style={{ maxWidth: 380 }}>
-      <h1>Staff Login</h1>
+      <h1>Manager Login</h1>
       <p style={{ color: '#6b6558', fontSize: '0.9rem' }}>
         Demo accounts — manager: manager@example.com (pw: testing004)
       </p>
@@ -38,7 +38,7 @@ export default function StaffLogin() {
         {error && <p className="error-text">{error}</p>}
         <button className="btn" type="submit">Log in</button>
       </form>
-      <p style={{ marginTop: 16 }}>New staff? <Link to="/register/staff">Register</Link></p>
+      <p style={{ marginTop: 16 }}>New Manager? <Link to="/register/manager">Register</Link></p>
       <p style={{ marginTop: 12 }}><Link to="/login">Back to choice</Link></p>
     </div>
   );
