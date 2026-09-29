@@ -9,9 +9,9 @@ export default function StaffLogin() {
   const { login } = useAuth();
   const navigate = useNavigate();
 
-  function handleSubmit(e) {
+  async function handleSubmit(e) {
     e.preventDefault();
-    const result = login(email, password);
+    const result = await login(email, password);
     if (result.error) { setError(result.error); return; }
     if (result.user.role === 'manager') {
       navigate('/manager/dashboard');
@@ -24,7 +24,7 @@ export default function StaffLogin() {
     <div className="page" style={{ maxWidth: 380 }}>
       <h1>Staff Login</h1>
       <p style={{ color: '#6b6558', fontSize: '0.9rem' }}>
-        Demo accounts — manager: manager@example.com (any password)
+        Demo accounts — manager: manager@example.com (pw: testing004)
       </p>
       <form onSubmit={handleSubmit}>
         <div className="field">

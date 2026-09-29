@@ -1,31 +1,49 @@
-import { createContext, useContext, useState } from 'react';
-import { users } from '../data/mockData';
+import { createContext, useContext, useState, useEffect } from 'react';
+// import { users } from '../data/mockData';
+import api from '../services/api';
 
 const AuthContext = createContext(null);
 
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
+  const [loading, setLoading] = useState(true);
 
-  // Swap this for: await axios.post('/api/auth/login', { email, password })
-  function login(email, password) {
-    const found = users.find(u => u.email === email);
-    if (!found) return { error: 'No account with that email.' };
-    setUser(found);
-    return { user: found };
+  useEffect(() => {
+    const token = localStorage.getItem('token');
+    if (!token) { setLoading(false); return; }
+    api.get('/auth/me')
+      .then(res => setUser(res.data))
+      .catch(() => localStorage.removeItem('token'))
+      .finally(() => setLoading(false));
+  }, []);
+
+  async function login(email, password) {
+    try {
+      const res = await api.post('/auth/login', { email, password });
+      localStorage.setItem('token', res.data.token);
+      setUser(res.data.user);
+      return { user: res.data.user };
+    } catch (err) {
+      return { error: err.response?.data?.error || 'Login failed' };
+    }
   }
 
-  function register(name, email, phone, password, role = 'customer') {
-    const exists = users.some(u => u.email === email);
-    if (exists) return { error: 'Email already registered.' };
-    const newUser = { user_id: users.length + 1, name, email, phone, password_hash: password, role };
-    users.push(newUser);
-    return { user: newUser };
+  async function register(name, email, phone, password, role) {
+    try {
+      const res = await api.post('/auth/register', { name, email, phone, password, role });
+      return { user: res.data };
+    } catch (err) {
+      return { error: err.response?.data?.error || 'Registration failed' };
+    }
   }
 
-  function logout() { setUser(null); }
+  function logout() {
+    localStorage.removeItem('token');
+    setUser(null);
+  }
 
   return (
-    <AuthContext.Provider value={{ user, login, register, logout }}>
+    <AuthContext.Provider value={{ user, login, register, logout, loading }}>
       {children}
     </AuthContext.Provider>
   );

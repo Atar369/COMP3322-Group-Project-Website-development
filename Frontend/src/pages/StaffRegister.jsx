@@ -10,9 +10,9 @@ export default function StaffRegister() {
 
   function update(field, value) { setForm(prev => ({ ...prev, [field]: value })); }
 
-  function handleSubmit(e) {
+  async function handleSubmit(e) {
     e.preventDefault();
-    const result = register(form.name, form.email, form.phone, form.password, 'manager');
+    const result = await register(form.name, form.email, form.phone, form.password, 'manager');
     if (result.error) { setError(result.error); return; }
     navigate('/login/staff');
   }
