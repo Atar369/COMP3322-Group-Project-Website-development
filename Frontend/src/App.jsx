@@ -31,7 +31,8 @@ import ManagerBookings from './pages/manager/ManagerBookings';
 import ManagerDashboard from './pages/manager/ManagerDashboard';
 
 function Home() {
-  const { user } = useAuth();
+  const { user, loading } = useAuth();
+  if (loading) return null;
   if (user?.role === 'manager') return <Navigate to="/manager/dashboard" replace />;
   if (user) return <Navigate to="/dashboard" replace />;
   return <Navigate to="/welcome" replace />;
