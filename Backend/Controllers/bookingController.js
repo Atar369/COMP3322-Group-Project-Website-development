@@ -12,8 +12,8 @@ async function create(request, response) {
       SELECT 1
       FROM bookings
       WHERE table_id = ?
-        AND booking_date = ?
-        AND booking_time = ?
+        AND DATE(booking_date) = DATE(?)
+        AND TIME_FORMAT(booking_time, '%H:%i') = TIME_FORMAT(?, '%H:%i')
         AND status = 'confirmed'
     ) AS is_booked;`;
 
@@ -65,8 +65,9 @@ async function availability(request, response) {
          AND t.capacity BETWEEN ? AND ?
          AND NOT EXISTS (
            SELECT 1 FROM bookings b
-           WHERE b.table_id = t.table_id AND b.booking_date = ?
-             AND b.booking_time = ? AND b.status = 'confirmed')
+           WHERE b.table_id = t.table_id AND DATE(b.booking_date) = DATE(?)
+             AND TIME_FORMAT(b.booking_time, '%H:%i') = TIME_FORMAT(?, '%H:%i')
+             AND b.status = 'confirmed')
        ORDER BY t.table_number`,
       [size, size * 2, date, time]
     );

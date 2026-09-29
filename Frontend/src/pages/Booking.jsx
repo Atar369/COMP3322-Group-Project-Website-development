@@ -17,7 +17,8 @@ export default function Booking() {
   
 
   useEffect(() => {
-    fetch('/api/booking/tables')
+    const token = localStorage.getItem('token');
+    fetch('/api/booking/tables', { headers: { Authorization: `Bearer ${token}` } })
       .then(r => r.json())
       .then(d => setAllTables(Array.isArray(d) ? d : []))
       .catch(() => setAllTables([]));
@@ -26,7 +27,8 @@ export default function Booking() {
   useEffect(() => {
     if (!date || !time || !partySize) { setAvailableTables([]); return; }
     let stale = false;
-    fetch(`/api/booking/availability?date=${date}&time=${time}&party_size=${partySize}`)
+    const token = localStorage.getItem('token');
+    fetch(`/api/booking/availability?date=${date}&time=${time}&party_size=${partySize}`, { headers: { Authorization: `Bearer ${token}` } })
       .then(r => r.json())
       .then(d => { if (!stale) setAvailableTables(Array.isArray(d) ? d : []); })
       .catch(() => { if (!stale) setAvailableTables([]); });
@@ -53,9 +55,10 @@ export default function Booking() {
     if (!effectiveTableId) { setResult({ error: noPreference ? 'No available tables for this slot.' : 'Select a table first.' }); return; }
 
     try {
+      const token = localStorage.getItem('token');
       const res = await fetch('/api/booking', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
         body: JSON.stringify({
           user_id: user.user_id,
           table_id: effectiveTableId,
