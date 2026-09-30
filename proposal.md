@@ -78,20 +78,86 @@ A browser-based web application is optimal for this deployment because both cust
 ### 8. High-Level System Workflow
 
 **Customer Workflow Journey**
-- Step 1: Access Platform — The customer accesses the system landing page and chooses to log in, register a new account, or proceed with guest access privileges.
-- Step 2: Reserve Table — The customer selects the party size, views an interactive floor plan, chooses an available table and timeslot, and confirms the reservation.
-- Step 3: Join Digital Queue — The customer enters party size details, receives an categorized queue reference number (Series A, B, or C), and monitors live queue progression and estimated wait times.
-- Step 4: Place Order — The customer enters their Booking ID or Queue ID, browses categorized menu selections (set meals, main courses, sides, beverages, desserts, and wines), populates the digital cart, and submits the order.
-- Step 5: Track Status — The customer reviews live order progress, account history, and personal profile settings.
 
+- **Step 1: Access Platform** — The customer accesses the system landing page and chooses to log in or register a new account.
+
+  System landing page:  
+  <img width="640" height="333" alt="image" src="https://github.com/user-attachments/assets/0b3cd045-3a99-4861-99e9-ca1846f063fc" />
+
+  Customer login page:  
+  <img width="640" height="335" alt="image" src="https://github.com/user-attachments/assets/cbd846ae-15a1-4924-963c-7d051cc09ee9" />
+
+  Customer register page:  
+  <img width="640" height="334" alt="image" src="https://github.com/user-attachments/assets/804b1b7f-a553-40db-a6b3-2609c0923c7e" />
+
+- **Step 2: Reserve Table** — The customer selects the party size, views an interactive floor plan, chooses an available table and timeslot, and confirms the reservation.
+
+  <img width="640" height="335" alt="image" src="https://github.com/user-attachments/assets/186f8aca-995b-4169-b9b3-9c353c7379f7" />
+
+- **Step 3: Join Queue** — The customer enters the party size, receives a categorized queue reference number (Series A, B, or C), and monitors the live queue progression. The system also calculates the customer’s current queue position so they can see how many groups are ahead of them.
+
+  Queue page before joining the queue:  
+  <img width="640" height="335" alt="image" src="https://github.com/user-attachments/assets/7fedca18-904b-43e9-adb9-f603a8694c64" />
+
+  Queue page after joining the queue:  
+  <img width="640" height="337" alt="image" src="https://github.com/user-attachments/assets/aded7423-e0c5-4cc3-9597-0b00c7620000" />
+
+- **Step 4: Place Order** — The customer enters their Booking ID or Queue ID, browses categorized menu selections (starters, mains, and desserts), adds items to the cart, and submits the order.
+
+  Order page:  
+  <img width="1897" height="1401" alt="image" src="https://github.com/user-attachments/assets/426aea07-0b78-48a8-a42a-8db8392b5afe" />
+
+  Cart page:  
+  <img width="640" height="334" alt="image" src="https://github.com/user-attachments/assets/ca031fa8-695a-43e4-b46c-35cca5a86bd8" />
+
+- **Step 5: Track Status** — The customer reviews live order progress, order history, queue history, booking history, and personal profile settings.
+
+  Review order progress page:  
+  <img width="640" height="334" alt="image" src="https://github.com/user-attachments/assets/7a1209f2-b7d4-4392-bdcf-68d73370e8c6" />
+
+  Order history page:  
+  <img width="640" height="335" alt="image" src="https://github.com/user-attachments/assets/b3842c02-20ea-464b-aa83-5a5215daa6f9" />
+
+  Queue history page:  
+  <img width="640" height="337" alt="image" src="https://github.com/user-attachments/assets/6838054e-8f0d-44ff-af35-d95c87bfc59f" />
+
+  Booking history page:  
+  <img width="640" height="334" alt="image" src="https://github.com/user-attachments/assets/a9159e17-3d75-4b6d-8c74-1c73de0f6945" />
+
+  Personal information page:  
+  <img width="640" height="335" alt="image" src="https://github.com/user-attachments/assets/406dcee4-d473-44e8-9e73-9afd10a539c7" />
+  
 **Manager Workflow Journey**
-- Step 1: System Authentication — Managers log into the system using authenticated administrative credentials.
-- Step 2: Operations Management — Managers view and manage active queue movements, table reservation schedules, and live food orders.
-- Step 3: Executive Analytics — Managers filter operational metrics by date ranges to review sales distribution, peak service hours, and customer dining preferences.
-- Step 4: Workflow Status Updates — Managers continuously update order life-cycle statuses (e.g., from 'In Preparation' to 'Served' and 'Completed & Paid').
 
-Note: A detailed page-flow architectural diagram will be provided within the project repository documentation.
+- **Step 1: System Authentication** — Managers log into the system using authenticated administrative credentials.
 
+  <img width="640" height="332" alt="image" src="https://github.com/user-attachments/assets/4433fbe9-3805-4514-89a6-e70a750f73be" />
+
+- **Step 2: Operations Management** — Managers view and manage active queue movements, table booking schedules, and live food orders by updating their lifecycle statuses.
+
+  **Queue Management** — Managers call waiting groups and mark them as seated:
+  - `waiting` → **Call** → `calling` (group is notified)
+  - `calling` → **Seated** → `seated` (group is assigned a table)
+
+  **Order Management** — Managers advance kitchen order stages and confirm payment:
+  - `pending` → `preparing` → `ready` → `arrived` (via **Advance Status**)
+  - `arrived` → `paid` (via **Mark as Paid**)
+
+  **Booking Management** — Managers view all confirmed and historical bookings, filterable by status (`confirmed`, `cancelled`, `completed`, `no_show`) and searchable by booking ID, date, or time.
+
+  Queue management page:  
+  <img width="640" height="335" alt="image" src="https://github.com/user-attachments/assets/30ba7806-e651-4c9f-9658-b92a3895ac3f" />
+
+  Booking management page:  
+  <img width="1897" height="1056" alt="image" src="https://github.com/user-attachments/assets/2cf1b689-5523-4564-9521-d3332c11f003" />
+
+  Order management page:  
+  <img width="640" height="337" alt="image" src="https://github.com/user-attachments/assets/22e667f7-4c6b-4dbd-8ba6-51504df3f6c6" />
+
+- **Step 3: Executive Analytics** — Managers filter operational metrics by date ranges to review sales distribution, peak service hours, and customer dining preferences.
+
+  <img width="640" height="335" alt="image" src="https://github.com/user-attachments/assets/1a58fee0-0ace-4c2c-9a4c-a70c4cbf64a8" />
+  
 ### 9. Anticipated Technical Challenges & Execution Plan
 1. Frontend Architecture & Full-Stack Integration (React, Vite, React Router, Context API):  
    Execution Strategy: Ensuring seamless communication across the entire stack so that all features operate reliably end-to-end (Frontend ↔ Backend ↔ Database). The team will establish clear RESTful API contracts, use Axios/Fetch abstractions with structured state management, implement localized technology prototypes, and conduct pair-programming sessions to establish unified development standards across all application layers.
