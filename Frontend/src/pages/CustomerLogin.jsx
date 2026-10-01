@@ -9,9 +9,9 @@ export default function CustomerLogin() {
   const { login } = useAuth();
   const navigate = useNavigate();
 
-  function handleSubmit(e) {
+  async function handleSubmit(e) {
     e.preventDefault();
-    const result = login(email, password);
+    const result = await login(email, password);
     if (result.error) { setError(result.error); return; }
     if (result.user.role === 'customer') {
       navigate('/dashboard');
@@ -24,7 +24,8 @@ export default function CustomerLogin() {
     <div className="page" style={{ maxWidth: 380 }}>
       <h1>Customer Login</h1>
       <p style={{ color: '#6b6558', fontSize: '0.9rem' }}>
-        Demo accounts — customer: alice@example.com(any password)
+        Demo accounts — customer: 
+        alice@example.com (pw: testing000), alex@example.com (pw: testing001), blair@example.com (pw: testing002), casey@example.com (pw: testing003)
       </p>
       <form onSubmit={handleSubmit}>
         <div className="field">

@@ -1,8 +1,8 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 
-export default function Register() {
+export default function ManagerRegister() {
   const [form, setForm] = useState({ name: '', email: '', phone: '', password: '' });
   const [error, setError] = useState('');
   const { register } = useAuth();
@@ -10,16 +10,16 @@ export default function Register() {
 
   function update(field, value) { setForm(prev => ({ ...prev, [field]: value })); }
 
-  function handleSubmit(e) {
+  async function handleSubmit(e) {
     e.preventDefault();
-    const result = register(form.name, form.email, form.phone, form.password);
+    const result = await register(form.name, form.email, form.phone, form.password, 'manager');
     if (result.error) { setError(result.error); return; }
-    navigate('/menu');
+    navigate('/login/manager');
   }
 
   return (
     <div className="page" style={{ maxWidth: 380 }}>
-      <h1>Create an account</h1>
+      <h1>Manager Registration</h1>
       <form onSubmit={handleSubmit}>
         <div className="field">
           <label>Full name</label>
@@ -40,6 +40,7 @@ export default function Register() {
         {error && <p className="error-text">{error}</p>}
         <button className="btn" type="submit">Register</button>
       </form>
+      <p style={{ marginTop: 16 }}>Already have an account? <Link to="/login/manager">Log in</Link></p>
     </div>
   );
 }

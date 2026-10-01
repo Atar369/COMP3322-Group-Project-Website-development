@@ -1,13 +1,23 @@
-import { useState, useMemo } from 'react';
-import { bookings, restaurant_tables } from '../../data/mockData';
+// import { bookings, restaurant_tables } from '../../data/mockData';
+import { useState, useEffect, useMemo } from 'react';
 
 const ALL_STATUSES = ['all', 'confirmed', 'completed', 'cancelled', 'no_show'];
-
 const BADGE = { confirmed: 'preparing', completed: 'completed', cancelled: 'cancelled', no_show: 'pending' };
 
 export default function ManagerBookings() {
+  const [bookings, setBookings] = useState([]);
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
+  const [error, setError] = useState('');
+
+  function load() {
+    fetch('/api/booking/all')
+      .then(r => r.json())
+      .then(d => setBookings(Array.isArray(d) ? d : []))
+      .catch(() => setBookings([]));
+  }
+
+  useEffect(load, []);
 
   const filtered = useMemo(() => bookings.filter(b => {
     const matchesStatus = statusFilter === 'all' || b.status === statusFilter;
@@ -17,7 +27,19 @@ export default function ManagerBookings() {
       b.booking_date.includes(term) ||
       b.booking_time.includes(term);
     return matchesStatus && matchesSearch;
-  }), [search, statusFilter]);
+  }), [bookings, search, statusFilter]);
+
+  async function handleCancel(bookingId) {
+    setError('');
+    try {
+      const res = await fetch(`/api/booking/${bookingId}/cancel`, { method: 'PATCH' });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) { setError(data.error || 'Could not cancel booking.'); return; }
+      load();
+    } catch {
+      setError('Could not reach the server.');
+    }
+  }
 
   return (
     <div className="page">
@@ -44,21 +66,29 @@ export default function ManagerBookings() {
         </div>
       </div>
 
+      {error && <p className="error-text">{error}</p>}
       {filtered.length === 0 && (
         <p style={{ color: '#6b6558' }}>No bookings match your filter.</p>
       )}
 
-      {filtered.map(b => {
-        const table = restaurant_tables.find(t => t.table_id === b.table_id);
-        return (
-          <div className="ticket-row" key={b.booking_id}>
-            <span className="name">#{b.booking_id} · {b.booking_date} · {b.booking_time}</span>
-            <span className="leader" />
-            <span className={`badge ${BADGE[b.status] || 'pending'}`}>{b.status.replace('_', ' ')}</span>
-            <span className="desc">Table #{table?.table_number}, party of {b.party_size}{b.special_request ? ` — "${b.special_request}"` : ''}</span>
-          </div>
-        );
-      })}
+      {filtered.map(b => (
+        <div className="ticket-row" key={b.booking_id}>
+          <span className="name">#{b.booking_id} · {b.booking_date} · {b.booking_time}</span>
+          <span className="leader" />
+          <span className={`badge ${BADGE[b.status] || 'pending'}`}>{b.status.replace('_', ' ')}</span>
+          <span className="desc">Table #{b.table_number}, party of {b.party_size}{b.special_request ? ` — "${b.special_request}"` : ''}</span>
+          {b.status === 'confirmed' && (
+            <button
+              type="button"
+              className="btn secondary"
+              style={{ padding: '4px 12px', fontSize: '0.8rem', marginLeft: 12 }}
+              onClick={() => handleCancel(b.booking_id)}
+            >
+              Cancel
+            </button>
+          )}
+        </div>
+      ))}
     </div>
   );
 }

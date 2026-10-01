@@ -1,9 +1,17 @@
-import { bookings } from '../data/mockData';
+import { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 
 export default function BookingHistory() {
   const { user } = useAuth();
-  const userBookings = bookings.filter(b => b.user_id === user.user_id);
+  const [userBookings, setUserBookings] = useState([]);
+
+  useEffect(() => {
+    if (!user) return;
+    fetch(`/api/booking/user/${user.user_id}`)
+      .then(r => r.json())
+      .then(d => setUserBookings(Array.isArray(d) ? d : []))
+      .catch(() => setUserBookings([]));
+  }, [user]);
 
   return (
     <div className="page">
@@ -13,10 +21,10 @@ export default function BookingHistory() {
       ) : (
         userBookings.map(b => (
           <div className="ticket-row" key={b.booking_id}>
-            <span className="name">Booking #{b.booking_id}</span>
+            <span className="name">Booking #{b.booking_id} — Table #{b.table_id}</span>
             <span className="leader" />
             <span className={`badge ${b.status}`}>{b.status}</span>
-            <span className="desc">{b.booking_date} {b.booking_time} — Party of {b.party_size}</span>
+            <span className="desc">{b.booking_date?.slice(0, 10)} {b.booking_time?.slice(0, 5)} — Party of {b.party_size}</span>
           </div>
         ))
       )}

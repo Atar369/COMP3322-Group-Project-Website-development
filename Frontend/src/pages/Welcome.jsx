@@ -22,10 +22,10 @@ export default function Welcome() {
         <div className="card" style={{ padding: 24, cursor: 'pointer', display: 'flex', flexDirection: 'column', gap: 16, alignItems: 'center' }}>
           <div style={{ fontSize: '3rem' }}>👨‍💼</div>
           <div>
-            <h3 style={{ marginBottom: 4 }}>Staff</h3>
+            <h3 style={{ marginBottom: 4 }}>Manager</h3>
           </div>
-          <button className="btn" onClick={() => navigate('/login/staff')} style={{ marginTop: 'auto' }}>
-            Staff Login
+          <button className="btn" onClick={() => navigate('/login/manager')} style={{ marginTop: 'auto' }}>
+            Manager Login
           </button>
         </div>
       </div>

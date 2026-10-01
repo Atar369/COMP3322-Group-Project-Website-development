@@ -1,11 +1,12 @@
 -- Run once after schema.sql on an empty database. All names and contacts are fictional.
-USE comp3322_restaurant;
+-- USE comp3322_restaurant;
 
 INSERT INTO users (name, email, phone, password_hash, role) VALUES
-  ('Alex Example', 'alex@example.test', '+85200000001', 'DUMMY_HASH_REPLACE_BEFORE_LOGIN_001', 'customer'),
-  ('Blair Example', 'blair@example.test', '+85200000002', 'DUMMY_HASH_REPLACE_BEFORE_LOGIN_002', 'customer'),
-  ('Casey Example', 'casey@example.test', '+85200000003', 'DUMMY_HASH_REPLACE_BEFORE_LOGIN_003', 'customer'),
-  ('Morgan Manager', 'manager@example.test', '+85200000004', 'DUMMY_HASH_REPLACE_BEFORE_LOGIN_004', 'manager');
+  ('Alice Example', 'alice@example.com', '+85200000000', '$2b$10$FPquNaucIf/JMDb4LEIepO7f5fer7HFVw/CqgErpuj.kWPjkcp5iK', 'customer'),
+  ('Alex Example', 'alex@example.com', '+85200000001', '$2b$10$7.5cRx6Vepdqq79RqOtrZuqUDYnA8JXUcYX2euIGHa0WmB1MQu7Tu', 'customer'),
+  ('Blair Example', 'blair@example.com', '+85200000002', '$2b$10$mOwPsCRYNNXs6iDPJklfXeV5iMOCeqLjiOzN4UVeW.Uj5nfJtPVTa', 'customer'),
+  ('Casey Example', 'casey@example.com', '+85200000003', '$2b$10$PwMwO8Ciz9Wr7Xk1cSE2ru.FsntjiMqs0b4KWhUs2i77T8lBs9eyG', 'customer'),
+  ('Morgan Manager', 'manager@example.com', '+85200000004', '$2b$10$XRVNDT3h/h.O477fdxoNHOnLC6ADQ3NxmSR2EzbTVLQFoaNqjZ06i', 'manager');
 
 INSERT INTO menu_items (name, description, category, price, is_available) VALUES
   ('Dish 1', 'Sample rice dish', 'Main', 38.00, TRUE),

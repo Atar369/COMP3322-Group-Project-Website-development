@@ -6,9 +6,9 @@ import ProtectedRoute from './components/ProtectedRoute';
 
 import Welcome from './pages/Welcome';
 import CustomerLogin from './pages/CustomerLogin';
-import StaffLogin from './pages/StaffLogin';
+import ManagerLogin from './pages/ManagerLogin';
 import CustomerRegister from './pages/CustomerRegister';
-import StaffRegister from './pages/StaffRegister';
+import ManagerRegister from './pages/ManagerRegister';
 import CustomerDashboard from './pages/CustomerDashboard';
 import Menu from './pages/Menu';
 import ViewMenu from './pages/ViewMenu';
@@ -31,7 +31,8 @@ import ManagerBookings from './pages/manager/ManagerBookings';
 import ManagerDashboard from './pages/manager/ManagerDashboard';
 
 function Home() {
-  const { user } = useAuth();
+  const { user, loading } = useAuth();
+  if (loading) return null;
   if (user?.role === 'manager') return <Navigate to="/manager/dashboard" replace />;
   if (user) return <Navigate to="/dashboard" replace />;
   return <Navigate to="/welcome" replace />;
@@ -49,9 +50,9 @@ export default function App() {
               <Route path="/welcome" element={<Welcome />} />
               <Route path="/login" element={<Navigate to="/welcome" replace />} />
               <Route path="/login/customer" element={<CustomerLogin />} />
-              <Route path="/login/staff" element={<StaffLogin />} />
+              <Route path="/login/manager" element={<ManagerLogin />} />
               <Route path="/register/customer" element={<CustomerRegister />} />
-              <Route path="/register/staff" element={<StaffRegister />} />
+              <Route path="/register/manager" element={<ManagerRegister />} />
 
               <Route path="/dashboard" element={<ProtectedRoute role="customer"><CustomerDashboard /></ProtectedRoute>} />
               <Route path="/view-menu" element={<ProtectedRoute role="customer"><ViewMenu /></ProtectedRoute>} />
