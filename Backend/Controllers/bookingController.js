@@ -7,17 +7,44 @@ async function create(request, response) {
     return response.status(400).json({error: "Please fill in all required booking fields."});
   }
 
+  const td = new Date();
+  td.setHours(0, 0, 0, 0);
+
+  const tmr = new Date(td);
+  tmr.setDate(tmr.getDate() + 1);
+
+  const bookingDate = new Date(booking_date);
+  bookingDate.setHours(0, 0, 0, 0);
+
+  if (bookingDate < tmr) {
+    return response.status(400).json({error: "Bookings must be made at least one day in advance."});
+  }
+
   try {
+    const checkUserDaily = `SELECT EXISTS (
+      SELECT 1
+      FROM bookings
+      WHERE user_id = ?
+        AND DATE(booking_date) = DATE(?)
+        AND status = 'confirmed'
+    ) AS has_booking;`;
+
+    const [userRows] = await db.query(checkUserDaily, [user_id, booking_date]);
+    if (userRows[0].has_booking === 1) {
+      return response.status(409).json({error: "You can only make one booking per day."});
+    }
+
     const checkConflict = `SELECT EXISTS (
       SELECT 1
       FROM bookings
       WHERE table_id = ?
         AND DATE(booking_date) = DATE(?)
-        AND TIME_FORMAT(booking_time, '%H:%i') = TIME_FORMAT(?, '%H:%i')
         AND status = 'confirmed'
+        AND TIME(?) < ADDTIME(booking_time, '02:00:00')
+        AND ADDTIME(?, '02:00:00') > booking_time
     ) AS is_booked;`;
 
-    const [rows] = await db.query(checkConflict, [table_id, booking_date, booking_time]);
+    const [rows] = await db.query(checkConflict, [table_id, booking_date, booking_time, booking_time]);
     const isBooked = rows[0].is_booked;
 
     if (isBooked === 1) {
@@ -57,6 +84,9 @@ async function availability(request, response) {
   if (!date || !time || !size) {
     return response.status(400).json({error: "date, time and party_size are required."});
   }
+
+  const maxCap = size + 2;
+
   try {
     const [rows] = await db.query(
       `SELECT t.table_id, t.table_number, t.capacity
@@ -65,11 +95,14 @@ async function availability(request, response) {
          AND t.capacity BETWEEN ? AND ?
          AND NOT EXISTS (
            SELECT 1 FROM bookings b
-           WHERE b.table_id = t.table_id AND DATE(b.booking_date) = DATE(?)
-             AND TIME_FORMAT(b.booking_time, '%H:%i') = TIME_FORMAT(?, '%H:%i')
-             AND b.status = 'confirmed')
+           WHERE b.table_id = t.table_id 
+             AND DATE(b.booking_date) = DATE(?)
+             AND b.status = 'confirmed'
+             AND TIME(?) < ADDTIME(b.booking_time, '02:00:00')
+             AND ADDTIME(?, '02:00:00') > b.booking_time
+        )
        ORDER BY t.table_number`,
-      [size, size * 2, date, time]
+      [size, maxCap, date, time, time]
     );
     return response.json(rows);
   } catch (error) {
