@@ -8,5 +8,6 @@ router.post("/", bookingController.create);
 router.get("/user/:user_id", bookingController.listByUser);
 router.get("/all", bookingController.listAll);
 router.patch("/:id/cancel", bookingController.cancel);
+router.patch("/:id", bookingController.edit);
 
 module.exports = router;
