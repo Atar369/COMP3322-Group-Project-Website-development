@@ -162,5 +162,131 @@ async function cancel(request, response) {
   }
 }
 
-module.exports = {create, tables, availability, listByUser, listAll, cancel};
+// Add a new function to edit a booking
+async function edit(request, response) {
+  const {id} = request.params;
+  const {table_id, booking_date, booking_time, party_size, special_request, pre_order} = request.body;
 
+  if (!table_id || !booking_date || !booking_time || !party_size) {
+    return response.status(400).json({error: "Please fill in all required booking fields."});
+  }
+
+  const td = new Date();
+  td.setHours(0, 0, 0, 0);
+
+  const tmr = new Date(td);
+  tmr.setDate(tmr.getDate() + 1);
+
+  const bookingDate = new Date(booking_date);
+  bookingDate.setHours(0, 0, 0, 0);
+
+  if (bookingDate < tmr) {
+    return response.status(400).json({error: "Bookings must be made at least one day in advance."});
+  }
+
+  const size = Number(party_size);
+  if (isNaN(size) || size <= 0) {
+    return response.status(400).json({error: "Invalid party size."});
+  }
+
+  try {
+    const [existingRows] = await db.query(
+      `SELECT booking_id, user_id, status FROM bookings WHERE booking_id = ?`,
+      [id]
+    );
+
+    if (existingRows.length === 0) {
+      return response.status(404).json({error: "Booking not found."});
+    }
+
+    const booking = existingRows[0];
+
+    if (booking.status !== 'confirmed') {
+      return response.status(400).json({error: "Only confirmed bookings can be edited."});
+    }
+
+    const user_id = booking.user_id;
+
+    const checkUserDaily = `SELECT EXISTS (
+      SELECT 1
+      FROM bookings
+      WHERE user_id = ?
+        AND DATE(booking_date) = DATE(?)
+        AND status = 'confirmed'
+        AND booking_id != ?
+    ) AS has_booking;`;
+
+    const [userRows] = await db.query(checkUserDaily, [user_id, booking_date, id]);
+    if (userRows[0].has_booking === 1) {
+      return response.status(409).json({error: "You can only make one booking per day."});
+    }
+
+    const [tableRows] = await db.query(
+      `SELECT capacity, status FROM restaurant_tables WHERE table_id = ?`,
+      [table_id]
+    );
+
+    if (tableRows.length === 0) {
+      return response.status(404).json({error: "Selected table not found."});
+    }
+
+    const tar = tableRows[0];
+
+    if (tar.status !== 'available') {
+      return response.status(400).json({error: "Selected table is not available."});
+    }
+
+    const maxCap = size + 2;
+
+    if (tar.capacity < size || tar.capacity > maxCap) {
+      return response.status(400).json({error: "The selected table does not match the party size requirements."});
+    }
+
+    const checkConflict = `SELECT EXISTS (
+      SELECT 1
+      FROM bookings
+      WHERE table_id = ?
+        AND DATE(booking_date) = DATE(?)
+        AND status = 'confirmed'
+        AND booking_id != ?
+        AND TIME(?) < ADDTIME(booking_time, '02:00:00')
+        AND ADDTIME(?, '02:00:00') > booking_time
+    ) AS is_booked;`;
+
+    const [conflictRows] = await db.query(checkConflict, [table_id, booking_date, id, booking_time, booking_time]);
+    
+    if (conflictRows[0].is_booked === 1) {
+      return response.status(409).json({error: "The table is already reserved for this timeslot."});
+    }
+
+    const update = `
+      UPDATE bookings
+      SET table_id = ?, booking_date = ?, booking_time = ?, party_size = ?, special_request = ?, pre_order = ?
+      WHERE booking_id = ?
+      AND status = 'confirmed'`;
+
+    const [result] = await db.query(update, [
+      table_id,
+      booking_date,
+      booking_time,
+      party_size,
+      special_request !== undefined ? special_request : "",
+      pre_order ? JSON.stringify(pre_order) : null,
+      id
+    ]);
+
+    if (result.affectedRows === 0) {
+      return response.status(404).json({error: "Failed to edit the booking."});
+    }
+
+    return response.json({message: "Booking updated successfully."});
+  } catch (error) {
+    if (error.code === "ER_DUP_ENTRY") {
+      return response.status(409).json({error: "The table is already reserved for this timeslot."});
+    }
+    console.error("database error:", error);
+    return response.status(500).json({error: "Please try again later."});
+  }
+}
+
+module.exports = {create, tables, availability, listByUser, listAll, cancel, edit};
