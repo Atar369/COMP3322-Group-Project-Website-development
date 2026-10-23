@@ -30,13 +30,13 @@ INSERT INTO restaurant_tables (table_number, capacity, status) VALUES
 
 -- IDs below assume the empty database created by schema.sql.
 -- Historical orders may include an item that is now unavailable.
-INSERT INTO orders (user_id, order_time, status, total_amount, payment_status) VALUES
-  (1, TIMESTAMP(CURDATE(), '10:15:00'), 'completed', 80.00, 'paid'),
-  (2, TIMESTAMP(CURDATE(), '10:45:00'), 'preparing', 110.00, 'paid'),
-  (3, TIMESTAMP(CURDATE(), '12:05:00'), 'ready', 46.00, 'paid'),
-  (1, TIMESTAMP(CURDATE(), '13:30:00'), 'pending', 38.00, 'unpaid'),
-  (2, TIMESTAMP(CURDATE() - INTERVAL 1 DAY, '19:20:00'), 'completed', 102.00, 'paid'),
-  (3, TIMESTAMP(CURDATE(), '11:30:00'), 'cancelled', 55.00, 'refunded');
+INSERT INTO orders (user_id, booking_id, queue_id, order_time, status, total_amount, payment_status) VALUES
+  (1, 5, NULL, TIMESTAMP(CURDATE(), '10:15:00'), 'completed', 80.00, 'paid'),
+  (2, NULL, 4,  TIMESTAMP(CURDATE(), '10:45:00'), 'completed', 110.00, 'paid'),
+  (3, NULL, NULL, TIMESTAMP(CURDATE(), '12:05:00'), 'completed', 46.00, 'paid'),
+  (1, NULL, NULL, TIMESTAMP(CURDATE(), '13:30:00'), 'pending', 38.00, 'unpaid'),
+  (2, NULL, NULL, TIMESTAMP(CURDATE() - INTERVAL 1 DAY, '19:20:00'), 'completed', 102.00, 'paid'),
+  (3, NULL, NULL, TIMESTAMP(CURDATE(), '11:30:00'), 'cancelled', 55.00, 'refunded');
 
 INSERT INTO order_items (order_id, item_id, quantity, unit_price) VALUES
   (1, 1, 1, 38.00), (1, 2, 1, 42.00),
@@ -47,16 +47,16 @@ INSERT INTO order_items (order_id, item_id, quantity, unit_price) VALUES
   (6, 3, 1, 55.00);
 
 INSERT INTO bookings (user_id, table_id, booking_date, booking_time, party_size, status, special_request) VALUES
-  (1, 3, CURDATE() + INTERVAL 1 DAY, '18:00:00', 4, 'confirmed', 'Window seat if possible'),
-  (2, 1, CURDATE() + INTERVAL 1 DAY, '19:30:00', 2, 'confirmed', NULL),
-  (3, 5, CURDATE() + INTERVAL 2 DAY, '20:00:00', 4, 'confirmed', 'Birthday dinner'),
+  (1, 3, CURDATE() + INTERVAL 1 DAY, '18:00:00', 4, 'reserved', 'Window seat if possible'),
+  (2, 1, CURDATE() + INTERVAL 1 DAY, '19:30:00', 2, 'reserved', NULL),
+  (3, 5, CURDATE() + INTERVAL 2 DAY, '20:00:00', 4, 'reserved', 'Birthday dinner'),
   (2, 6, CURDATE() + INTERVAL 3 DAY, '18:30:00', 7, 'cancelled', NULL),
-  (1, 4, CURDATE() - INTERVAL 1 DAY, '12:30:00', 2, 'completed', NULL),
+  (1, 4, CURDATE() - INTERVAL 1 DAY, '12:30:00', 2, 'finished', NULL),
   (3, 7, CURDATE() - INTERVAL 2 DAY, '19:00:00', 5, 'no_show', NULL);
 
-INSERT INTO queue_entries (user_id, party_size, joined_at, status, called_at, seated_at) VALUES
-  (1, 2, CURRENT_TIMESTAMP - INTERVAL 14 MINUTE, 'waiting', NULL, NULL),
-  (2, 4, CURRENT_TIMESTAMP - INTERVAL 7 MINUTE, 'waiting', NULL, NULL),
+INSERT INTO queue_entries (user_id, party_size, joined_at, status, called_at, served_at) VALUES
+  (1, 2, CURRENT_TIMESTAMP - INTERVAL 14 MINUTE, 'queued', NULL, NULL),
+  (2, 4, CURRENT_TIMESTAMP - INTERVAL 7 MINUTE, 'queued', NULL, NULL),
   (3, 3, CURRENT_TIMESTAMP - INTERVAL 20 MINUTE, 'called', CURRENT_TIMESTAMP - INTERVAL 2 MINUTE, NULL),
-  (2, 2, CURRENT_TIMESTAMP - INTERVAL 70 MINUTE, 'seated', CURRENT_TIMESTAMP - INTERVAL 45 MINUTE, CURRENT_TIMESTAMP - INTERVAL 40 MINUTE),
+  (2, 2, CURRENT_TIMESTAMP - INTERVAL 70 MINUTE, 'serving', CURRENT_TIMESTAMP - INTERVAL 45 MINUTE, CURRENT_TIMESTAMP - INTERVAL 40 MINUTE),
   (1, 5, CURRENT_TIMESTAMP - INTERVAL 50 MINUTE, 'cancelled', NULL, NULL);

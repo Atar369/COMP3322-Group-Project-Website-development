@@ -1,5 +1,4 @@
 import { useState, useMemo, useEffect } from 'react';
-// import { restaurant_tables, createBooking, getAvailableTablesFor } from '../data/mockData';
 import { useAuth } from '../context/AuthContext';
 
 export default function Booking() {
@@ -14,7 +13,9 @@ export default function Booking() {
   const [allTables, setAllTables] = useState([]);
   const [availableTables, setAvailableTables] = useState([]);
   const [refresh, setRefresh] = useState(0);
-  
+  const [menuItems, setMenuItems] = useState([]);
+  const [preOrder, setPreOrder] = useState([]);
+  const [preOrderCategory, setPreOrderCategory] = useState('All');
 
   useEffect(() => {
     const token = localStorage.getItem('token');
@@ -22,6 +23,13 @@ export default function Booking() {
       .then(r => r.json())
       .then(d => setAllTables(Array.isArray(d) ? d : []))
       .catch(() => setAllTables([]));
+  }, []);
+
+  useEffect(() => {
+    fetch('/api/booking/menu')
+      .then(r => r.json())
+      .then(d => setMenuItems(Array.isArray(d) ? d : []))
+      .catch(() => setMenuItems([]));
   }, []);
 
   useEffect(() => {
@@ -35,19 +43,44 @@ export default function Booking() {
     return () => { stale = true; };
   }, [date, time, partySize, refresh]);
 
-//  const availableTables = useMemo(
-//    () => date && time && partySize ? getAvailableTablesFor(date, time, partySize) : [],
-//    [date, time, partySize]
-//  );
-
-  // When no preference is checked, auto-assign the first available table
   const effectiveTableId = noPreference && availableTables.length > 0 ? availableTables[0].table_id : tableId;
 
-  // Clear selected table when party size changes and it no longer fits
   function handlePartySizeChange(val) {
     setPartySize(val);
     setTableId(null);
   }
+
+  function addPreOrderItem(item) {
+    setPreOrder(prev => {
+      const existing = prev.find(i => i.item_id === item.item_id);
+      if (existing) return prev.map(i => i.item_id === item.item_id ? { ...i, qty: i.qty + 1 } : i);
+      return [...prev, { item_id: item.item_id, name: item.name, price: Number(item.price), qty: 1 }];
+    });
+  }
+
+  function removePreOrderItem(item_id) {
+    setPreOrder(prev => prev.filter(i => i.item_id !== item_id));
+  }
+
+  function updatePreOrderQty(item_id, delta) {
+    setPreOrder(prev => prev.map(i => {
+      if (i.item_id !== item_id) return i;
+      const newQty = i.qty + delta;
+      return newQty <= 0 ? null : { ...i, qty: newQty };
+    }).filter(Boolean));
+  }
+
+  const preOrderTotal = preOrder.reduce((sum, i) => sum + i.price * i.qty, 0);
+
+  const menuCategories = useMemo(() => {
+    const cats = [...new Set(menuItems.map(i => i.category))];
+    return ['All', ...cats];
+  }, [menuItems]);
+
+  const filteredMenu = useMemo(
+    () => menuItems.filter(i => i.is_available && (preOrderCategory === 'All' || i.category === preOrderCategory)),
+    [menuItems, preOrderCategory]
+  );
 
   async function handleSubmit(e) {
     e.preventDefault();
@@ -66,12 +99,14 @@ export default function Booking() {
           booking_time: time,
           party_size: partySize,
           special_request: request,
+          pre_order: preOrder.length > 0 ? preOrder : null,
         }),
       });
       const data = await res.json();
       if (res.ok) {
         setResult({ bookingId: data.bookingId });
         setTableId(null);
+        setPreOrder([]);
         setRefresh(n => n + 1);
       } else {
         setResult({ error: data.error || 'Booking failed.' });
@@ -86,7 +121,12 @@ export default function Booking() {
     [allTables]
   );
 
-  const todayStr = new Date().toISOString().slice(0, 10); // "2026-09-30"
+  const todayStr = new Date().toISOString().slice(0, 10);
+  const tomorrowStr = (() => {
+    const d = new Date();
+    d.setDate(d.getDate() + 1);
+    return d.toISOString().slice(0, 10);
+  })();
 
   return (
     <div className="page" style={{ maxWidth: 900 }}>
@@ -95,21 +135,12 @@ export default function Booking() {
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12, marginBottom: 4 }}>
           <div className="field" style={{ margin: 0 }}>
             <label>Date</label>
-            <input type="date" min={todayStr} value={date} onChange={e => setDate(e.target.value)} required />
+            <input type="date" min={tomorrowStr} value={date} onChange={e => setDate(e.target.value)} required />
           </div>
           <div className="field" style={{ margin: 0 }}>
             <label>Time</label>
-            {/*<input type="time" value={time} onChange={e => setTime(e.target.value)} required /> */}
             <select value={time} onChange={e => setTime(e.target.value)} required>
-              {[
-                '10:00', '10:30', '11:00', '11:30',
-                '12:00', '12:30', '13:00', '13:30',
-                '14:00', '14:30', '15:00', '15:30',
-                '16:00', '16:30', '17:00', '17:30',
-                '18:00', '18:30', '19:00', '19:30',
-                '20:00', '20:30', '21:00', '21:30',
-                '22:00',
-              ].map(t => (
+              {['10:00','10:30','11:00','11:30','12:00','12:30','13:00','13:30','14:00','14:30','15:00','15:30','16:00','16:30','17:00','17:30','18:00','18:30','19:00','19:30','20:00','20:30','21:00','21:30','22:00'].map(t => (
                 <option key={t} value={t}>{t}</option>
               ))}
             </select>
@@ -189,6 +220,68 @@ export default function Booking() {
         <div className="field">
           <label>Special request (optional)</label>
           <textarea value={request} onChange={e => setRequest(e.target.value)} rows={2} />
+        </div>
+
+        {/* Pre-order Course Selection */}
+        <div style={{ marginTop: 24, marginBottom: 20, borderTop: '2px solid var(--mustard)', paddingTop: 20 }}>
+          <h2 style={{ marginBottom: 4 }}>Pre-order Courses (Optional)</h2>
+          <p style={{ color: '#6b6558', fontSize: '0.85rem', marginBottom: 16 }}>
+            Select courses in advance so your meal is prepared when you arrive. You can also edit these later from Booking Management.
+          </p>
+
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 16 }}>
+            {menuCategories.map(c => (
+              <button
+                key={c}
+                type="button"
+                onClick={() => setPreOrderCategory(c)}
+                className={c === preOrderCategory ? 'btn' : 'btn secondary'}
+                style={{ padding: '5px 12px', fontSize: '0.8rem' }}
+              >
+                {c}
+              </button>
+            ))}
+          </div>
+
+          <div style={{ maxHeight: 300, overflowY: 'auto', border: '1px solid var(--line)', padding: 12, marginBottom: 16 }}>
+            {filteredMenu.length === 0 ? (
+              <p style={{ color: '#6b6558', fontSize: '0.85rem' }}>No available items in this category.</p>
+            ) : filteredMenu.map(item => (
+              <div className="ticket-row" key={item.item_id} style={{ padding: '10px 0' }}>
+                <span className="name" style={{ fontSize: '0.95rem' }}>{item.name}</span>
+                <span className="leader" />
+                <span className="price">${Number(item.price).toFixed(0)}</span>
+                <button
+                  type="button"
+                  className="btn"
+                  style={{ padding: '3px 10px', fontSize: '0.8rem' }}
+                  onClick={() => addPreOrderItem(item)}
+                >
+                  +
+                </button>
+              </div>
+            ))}
+          </div>
+
+          {preOrder.length > 0 && (
+            <div className="card" style={{ borderColor: 'var(--mustard)', marginBottom: 16 }}>
+              <h3 style={{ marginBottom: 8 }}>Selected Courses</h3>
+              {preOrder.map(item => (
+                <div className="ticket-row" key={item.item_id} style={{ padding: '8px 0' }}>
+                  <span className="name" style={{ fontSize: '0.95rem' }}>{item.name}</span>
+                  <span className="leader" />
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <button type="button" className="qty-btn" onClick={() => updatePreOrderQty(item.item_id, -1)} style={{ border: '1px solid var(--ink)', background: 'transparent', borderRadius: '999px', width: 26, height: 26, cursor: 'pointer' }}>−</button>
+                    <span style={{ fontWeight: 600, minWidth: 20, textAlign: 'center' }}>{item.qty}</span>
+                    <button type="button" className="qty-btn" onClick={() => updatePreOrderQty(item.item_id, 1)} style={{ border: '1px solid var(--ink)', background: 'transparent', borderRadius: '999px', width: 26, height: 26, cursor: 'pointer' }}>+</button>
+                  </div>
+                  <span className="price">${item.price * item.qty}</span>
+                  <button type="button" className="btn secondary" style={{ padding: '3px 8px', fontSize: '0.75rem' }} onClick={() => removePreOrderItem(item.item_id)}>Remove</button>
+                </div>
+              ))}
+              <p style={{ marginTop: 12, fontWeight: 600 }}>Pre-order Total: ${preOrderTotal}</p>
+            </div>
+          )}
         </div>
 
         {result?.error && <p className="error-text">{result.error}</p>}

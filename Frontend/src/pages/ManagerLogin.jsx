@@ -39,6 +39,7 @@ export default function ManagerLogin() {
         <button className="btn" type="submit">Log in</button>
       </form>
       <p style={{ marginTop: 16 }}>New Manager? <Link to="/register/manager">Register</Link></p>
+      <p style={{ marginTop: 8 }}><Link to="/forgot-password">Forgot password?</Link></p>
       <p style={{ marginTop: 12 }}><Link to="/login">Back to choice</Link></p>
     </div>
   );

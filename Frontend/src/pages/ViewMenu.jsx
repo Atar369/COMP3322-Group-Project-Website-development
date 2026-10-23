@@ -1,14 +1,24 @@
-import { useState, useMemo } from 'react';
-import { menu_items } from '../data/mockData';
-
-const categories = ['Starters', 'Mains', 'Desserts'];
+import { useState, useMemo, useEffect } from 'react';
 
 export default function ViewMenu() {
   const [category, setCategory] = useState('All');
+  const [menuItems, setMenuItems] = useState([]);
+
+  useEffect(() => {
+    fetch('/api/booking/menu')
+      .then(r => r.json())
+      .then(d => setMenuItems(Array.isArray(d) ? d : []))
+      .catch(() => setMenuItems([]));
+  }, []);
+
+  const categories = useMemo(() => {
+    const cats = [...new Set(menuItems.map(i => i.category))];
+    return ['All', ...cats];
+  }, [menuItems]);
 
   const filtered = useMemo(
-    () => menu_items.filter(i => category === 'All' || i.category === category),
-    [category]
+    () => menuItems.filter(i => category === 'All' || i.category === category),
+    [menuItems, category]
   );
 
   return (
@@ -16,7 +26,7 @@ export default function ViewMenu() {
       <h1>View Menu</h1>
 
       <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 16 }}>
-        {['All', ...categories].map(c => (
+        {categories.map(c => (
           <button
             key={c}
             onClick={() => setCategory(c)}
@@ -32,8 +42,8 @@ export default function ViewMenu() {
         <div className="ticket-row" key={item.item_id}>
           <span className="name">{item.name}</span>
           <span className="leader" />
-          <span className="price">${item.price}</span>
-          {item.is_available ? (
+          <span className="price">${Number(item.price).toFixed(0)}</span>
+          {(item.is_available || item.is_available === 1) ? (
             <span style={{ fontSize: '0.8rem', color: 'var(--green)', fontWeight: 600 }}>Available</span>
           ) : (
             <span className="badge cancelled">Sold out</span>

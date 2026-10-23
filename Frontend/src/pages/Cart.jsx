@@ -1,46 +1,38 @@
 import { useNavigate } from 'react-router-dom';
 import { useCart } from '../context/CartContext';
 import { useAuth } from '../context/AuthContext';
-import { createOrder, getBooking, getQueue, isQueueCalled } from '../data/mockData';
+import api from '../services/api';
 
 export default function Cart() {
   const { items, removeItem, clearCart, total, orderContext } = useCart();
   const { user } = useAuth();
   const navigate = useNavigate();
 
-  function handlePlaceOrder() {
-    const bookingId = orderContext?.bookingId || null;
-    const queueId = orderContext?.queueId || null;
-    const orderId = createOrder(user.user_id, items, bookingId, queueId);
-    clearCart();
-    navigate(`/orders/${orderId}`);
-  }
-
-  function canPlaceOrder() {
-    if (!orderContext) return false;
-    if (orderContext.type === 'booking') {
-      const booking = getBooking(orderContext.bookingId);
-      if (!booking) return false;
-      const now = new Date();
-      const bookingDT = new Date(`${booking.booking_date}T${booking.booking_time}`);
-      return now >= bookingDT;
+  async function handlePlaceOrder() {
+    const orderItems = items.map(i => ({
+      item_id: i.item_id,
+      quantity: i.qty,
+      unit_price: i.price,
+    }));
+    try {
+      const res = await api.post('/orders', {
+        user_id: user.user_id,
+        booking_id: orderContext?.bookingId || null,
+        queue_id: orderContext?.queueId || null,
+        items: orderItems,
+      });
+      clearCart();
+      navigate(`/orders/${res.data.orderId}`);
+    } catch {
+      alert('Failed to place order. Please try again.');
     }
-    if (orderContext.type === 'queue') {
-      return isQueueCalled(orderContext.queueId);
-    }
-    return false;
   }
 
   if (items.length === 0) {
     return <div className="page"><h1>Your order</h1><p>Your cart is empty. Head back to the menu to add something.</p></div>;
   }
 
-  const placeOrderDisabled = !canPlaceOrder();
-  const disabledReason = orderContext
-    ? (orderContext.type === 'booking'
-        ? 'Booking time not reached yet'
-        : 'Queue ID not yet called')
-    : 'No booking or queue selected';
+  const canOrder = !!orderContext;
 
   return (
     <div className="page">
@@ -58,15 +50,14 @@ export default function Cart() {
       <button
         className="btn"
         onClick={handlePlaceOrder}
-        disabled={placeOrderDisabled}
-        title={placeOrderDisabled ? disabledReason : ''}
-        style={{ opacity: placeOrderDisabled ? 0.6 : 1, cursor: placeOrderDisabled ? 'not-allowed' : 'pointer' }}
+        disabled={!canOrder}
+        style={{ opacity: canOrder ? 1 : 0.6, cursor: canOrder ? 'pointer' : 'not-allowed' }}
       >
         Place order
       </button>
-      {placeOrderDisabled && (
+      {!canOrder && (
         <p style={{ color: 'var(--rust)', fontSize: '0.85rem', marginTop: 8 }}>
-          ⚠️ {disabledReason}
+          ⚠️ Unlock ordering from the New Order page first
         </p>
       )}
     </div>

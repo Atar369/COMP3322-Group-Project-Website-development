@@ -1,7 +1,7 @@
 const db = require("../db")
 
 async function create(request, response) {
-  const {user_id, table_id, booking_date, booking_time, party_size, special_request} = request.body;
+  const {user_id, table_id, booking_date, booking_time, party_size, special_request, pre_order} = request.body;
 
   if (!user_id || !table_id || !booking_date || !booking_time || !party_size) { //remove checking for special_request as it is optional
     return response.status(400).json({error: "Please fill in all required booking fields."});
@@ -26,7 +26,7 @@ async function create(request, response) {
       FROM bookings
       WHERE user_id = ?
         AND DATE(booking_date) = DATE(?)
-        AND status = 'confirmed'
+        AND status = 'reserved'
     ) AS has_booking;`;
 
     const [userRows] = await db.query(checkUserDaily, [user_id, booking_date]);
@@ -39,7 +39,7 @@ async function create(request, response) {
       FROM bookings
       WHERE table_id = ?
         AND DATE(booking_date) = DATE(?)
-        AND status = 'confirmed'
+        AND status = 'reserved'
         AND TIME(?) < ADDTIME(booking_time, '02:00:00')
         AND ADDTIME(?, '02:00:00') > booking_time
     ) AS is_booked;`;
@@ -51,8 +51,8 @@ async function create(request, response) {
       return response.status(409).json({error: "The table is already reserved for this timeslot."});
     }
 
-    const insert = `INSERT INTO bookings (user_id, table_id, booking_date, booking_time, party_size, status, special_request) VALUES (?, ?, ?, ?, ?, "confirmed", ?)`;
-    const [result] = await db.query(insert, [user_id, table_id, booking_date, booking_time, party_size, special_request || ""]);
+    const insert = `INSERT INTO bookings (user_id, table_id, booking_date, booking_time, party_size, status, special_request, pre_order) VALUES (?, ?, ?, ?, ?, "reserved", ?, ?)`;
+    const [result] = await db.query(insert, [user_id, table_id, booking_date, booking_time, party_size, special_request || "", pre_order ? JSON.stringify(pre_order) : null]);
     return response.status(201).json({message: "The table is booked successfully.", bookingId: result.insertId});
     
   } catch (error) {
@@ -97,7 +97,7 @@ async function availability(request, response) {
            SELECT 1 FROM bookings b
            WHERE b.table_id = t.table_id 
              AND DATE(b.booking_date) = DATE(?)
-             AND b.status = 'confirmed'
+             AND b.status = 'reserved'
              AND TIME(?) < ADDTIME(b.booking_time, '02:00:00')
              AND ADDTIME(?, '02:00:00') > b.booking_time
         )
@@ -116,7 +116,7 @@ async function listByUser(request, response) {
   const { user_id } = request.params;
   try {
     const [rows] = await db.query(
-      `SELECT booking_id, user_id, table_id, booking_date, booking_time, party_size, status, special_request
+      `SELECT booking_id, user_id, table_id, booking_date, booking_time, party_size, status, special_request, pre_order
        FROM bookings WHERE user_id = ? ORDER BY booking_date DESC, booking_time DESC`,
       [user_id]
     );
@@ -132,7 +132,7 @@ async function listAll(request, response) {
   try {
     const [rows] = await db.query(
       `SELECT b.booking_id, b.user_id, b.table_id, b.booking_date, b.booking_time,
-              b.party_size, b.status, b.special_request, t.table_number
+              b.party_size, b.status, b.special_request, b.pre_order, b.served_at, t.table_number
        FROM bookings b
        JOIN restaurant_tables t ON t.table_id = b.table_id
        ORDER BY b.booking_date DESC, b.booking_time DESC`
@@ -149,7 +149,7 @@ async function cancel(request, response) {
   const { id } = request.params;
   try {
     const [result] = await db.query(
-      `UPDATE bookings SET status = 'cancelled' WHERE booking_id = ? AND status = 'confirmed'`,
+      `UPDATE bookings SET status = 'cancelled' WHERE booking_id = ? AND status = 'reserved'`,
       [id]
     );
     if (result.affectedRows === 0) {
@@ -201,8 +201,8 @@ async function edit(request, response) {
 
     const booking = existingRows[0];
 
-    if (booking.status !== 'confirmed') {
-      return response.status(400).json({error: "Only confirmed bookings can be edited."});
+    if (booking.status !== 'reserved') {
+      return response.status(400).json({error: "Only reserved bookings can be edited."});
     }
 
     const user_id = booking.user_id;
@@ -212,7 +212,7 @@ async function edit(request, response) {
       FROM bookings
       WHERE user_id = ?
         AND DATE(booking_date) = DATE(?)
-        AND status = 'confirmed'
+        AND status = 'reserved'
         AND booking_id != ?
     ) AS has_booking;`;
 
@@ -247,7 +247,7 @@ async function edit(request, response) {
       FROM bookings
       WHERE table_id = ?
         AND DATE(booking_date) = DATE(?)
-        AND status = 'confirmed'
+        AND status = 'reserved'
         AND booking_id != ?
         AND TIME(?) < ADDTIME(booking_time, '02:00:00')
         AND ADDTIME(?, '02:00:00') > booking_time
@@ -263,7 +263,7 @@ async function edit(request, response) {
       UPDATE bookings
       SET table_id = ?, booking_date = ?, booking_time = ?, party_size = ?, special_request = ?, pre_order = ?
       WHERE booking_id = ?
-      AND status = 'confirmed'`;
+      AND status = 'reserved'`;
 
     const [result] = await db.query(update, [
       table_id,
@@ -289,4 +289,67 @@ async function edit(request, response) {
   }
 }
 
-module.exports = {create, tables, availability, listByUser, listAll, cancel, edit};
+async function arrive(request, response) {
+  const { id } = request.params;
+  try {
+    const [result] = await db.query(
+      `UPDATE bookings SET status = 'serving', served_at = NOW() WHERE booking_id = ? AND status = 'reserved'`,
+      [id]
+    );
+    if (result.affectedRows === 0) {
+      return response.status(404).json({error: "Booking not found or not in confirmed status."});
+    }
+    return response.json({message: "Booking marked as serving."});
+  } catch (error) {
+    console.error("database error:", error);
+    return response.status(500).json({error: "Please try again later."});
+  }
+}
+
+async function menu(request, response) {
+  try {
+    const [rows] = await db.query(
+      "SELECT item_id, name, description, category, price, is_available FROM menu_items ORDER BY category, name"
+    );
+    return response.json(rows);
+  } catch (error) {
+    console.error("database error:", error);
+    return response.status(500).json({error: "Please try again later."});
+  }
+}
+
+async function finishBooking(request, response) {
+  const { id } = request.params;
+  try {
+    const [result] = await db.query(
+      `UPDATE bookings SET status = 'finished' WHERE booking_id = ? AND status = 'serving'`,
+      [id]
+    );
+    if (result.affectedRows === 0) {
+      return response.status(404).json({error: "Booking not found or not in serving status."});
+    }
+    return response.json({message: "Booking marked as finished. Manager notified for payment."});
+  } catch (error) {
+    console.error("database error:", error);
+    return response.status(500).json({error: "Please try again later."});
+  }
+}
+
+async function payBooking(request, response) {
+  const { id } = request.params;
+  try {
+    const [result] = await db.query(
+      `UPDATE bookings SET status = 'paid' WHERE booking_id = ? AND status = 'finished'`,
+      [id]
+    );
+    if (result.affectedRows === 0) {
+      return response.status(404).json({error: "Booking not found or not in finished status."});
+    }
+    return response.json({message: "Booking marked as paid."});
+  } catch (error) {
+    console.error("database error:", error);
+    return response.status(500).json({error: "Please try again later."});
+  }
+}
+
+module.exports = {create, tables, availability, listByUser, listAll, cancel, edit, menu, arrive, finishBooking, payBooking};

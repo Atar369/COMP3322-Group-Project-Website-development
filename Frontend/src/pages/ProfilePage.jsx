@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
+import api from '../services/api';
 
 export default function ProfilePage() {
   const { user } = useAuth();
@@ -10,12 +11,42 @@ export default function ProfilePage() {
     phone: user?.phone || '',
   });
 
+  const [pwForm, setPwForm] = useState({ currentPassword: '', newPassword: '', confirmPassword: '' });
+  const [pwError, setPwError] = useState('');
+  const [pwSuccess, setPwSuccess] = useState('');
+  const [showPwForm, setShowPwForm] = useState(false);
+
   function handleChange(field, value) {
     setForm(prev => ({ ...prev, [field]: value }));
   }
 
   function handleSave() {
     setIsEditing(false);
+  }
+
+  async function handlePasswordChange(e) {
+    e.preventDefault();
+    setPwError('');
+    setPwSuccess('');
+    if (pwForm.newPassword.length < 6) {
+      setPwError('New password must be at least 6 characters.');
+      return;
+    }
+    if (pwForm.newPassword !== pwForm.confirmPassword) {
+      setPwError('Passwords do not match.');
+      return;
+    }
+    try {
+      const res = await api.post('/auth/change-password', {
+        currentPassword: pwForm.currentPassword,
+        newPassword: pwForm.newPassword,
+      });
+      setPwSuccess('Password changed successfully.');
+      setPwForm({ currentPassword: '', newPassword: '', confirmPassword: '' });
+      setShowPwForm(false);
+    } catch (err) {
+      setPwError(err.response?.data?.error || 'Failed to change password.');
+    }
   }
 
   return (
@@ -58,6 +89,48 @@ export default function ProfilePage() {
           <button className="btn" onClick={() => setIsEditing(true)} style={{ marginTop: 16 }}>Edit Information</button>
         </div>
       )}
+
+      {/* Change Password Section */}
+      <div style={{ marginTop: 32, borderTop: '2px solid var(--line)', paddingTop: 24 }}>
+        <h2>Change Password</h2>
+        {pwSuccess && <p style={{ color: 'var(--green)', fontWeight: 600 }}>{pwSuccess}</p>}
+        {!showPwForm ? (
+          <button className="btn secondary" onClick={() => setShowPwForm(true)}>Change Password</button>
+        ) : (
+          <form onSubmit={handlePasswordChange}>
+            <div className="field">
+              <label>Current Password</label>
+              <input
+                type="password"
+                value={pwForm.currentPassword}
+                onChange={e => setPwForm(f => ({ ...f, currentPassword: e.target.value }))}
+                required
+              />
+            </div>
+            <div className="field">
+              <label>New Password</label>
+              <input
+                type="password"
+                value={pwForm.newPassword}
+                onChange={e => setPwForm(f => ({ ...f, newPassword: e.target.value }))}
+                required
+              />
+            </div>
+            <div className="field">
+              <label>Confirm New Password</label>
+              <input
+                type="password"
+                value={pwForm.confirmPassword}
+                onChange={e => setPwForm(f => ({ ...f, confirmPassword: e.target.value }))}
+                required
+              />
+            </div>
+            {pwError && <p className="error-text">{pwError}</p>}
+            <button className="btn" type="submit">Update Password</button>
+            <button className="btn secondary" type="button" style={{ marginLeft: 8 }} onClick={() => { setShowPwForm(false); setPwError(''); }}>Cancel</button>
+          </form>
+        )}
+      </div>
     </div>
   );
 }

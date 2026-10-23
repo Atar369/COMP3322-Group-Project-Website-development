@@ -40,6 +40,7 @@ export default function CustomerLogin() {
         <button className="btn" type="submit">Log in</button>
       </form>
       <p style={{ marginTop: 16 }}>No account? <Link to="/register/customer">Register</Link></p>
+      <p style={{ marginTop: 8 }}><Link to="/forgot-password">Forgot password?</Link></p>
       <p style={{ marginTop: 12 }}><Link to="/login">Back to choice</Link></p>
     </div>
   );

@@ -1,81 +1,89 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { menu_items, bookings, getBooking, getQueue, getTable, isQueueCalled } from '../data/mockData';
 import { useCart } from '../context/CartContext';
 import { useAuth } from '../context/AuthContext';
+import api from '../services/api';
 
-const categories = ['Starters', 'Mains', 'Desserts'];
+const categories = ['Starters', 'Mains', 'Desserts', 'Main', 'Side', 'Dessert'];
 
 export default function Menu() {
   const { user } = useAuth();
   const { addItem, items, setOrderContext } = useCart();
 
+  const [menuItems, setMenuItems] = useState([]);
+  const [sessionInfo, setSessionInfo] = useState(null);
+  const [unlockError, setUnlockError] = useState('');
+  const [category, setCategory] = useState('All');
   const [bookingIdInput, setBookingIdInput] = useState('');
   const [queueIdInput, setQueueIdInput] = useState('');
-  const [sessionInfo, setSessionInfo] = useState(null); // { type, bookingId, queueId, table, partySize, date, time, canOrder }
-  const [idError, setIdError] = useState('');
-  const [category, setCategory] = useState('All');
 
-  function handleBookingIdChange(val) {
+  useEffect(() => {
+    fetch('/api/booking/menu')
+      .then(r => r.json())
+      .then(d => setMenuItems(Array.isArray(d) ? d : []))
+      .catch(() => setMenuItems([]));
+  }, []);
+
+  async function checkBooking(val) {
     setBookingIdInput(val);
     setQueueIdInput('');
-    setIdError('');
+    setUnlockError('');
     setSessionInfo(null);
     setOrderContext(null);
     if (!val) return;
-    const booking = getBooking(val);
-    if (!booking || booking.user_id !== user.user_id || booking.status === 'cancelled') {
-      setIdError('Please enter a valid booking ID.');
-      return;
+    try {
+      const res = await fetch(`/api/booking/user/${user.user_id}`);
+      const bookings = await res.json();
+      const booking = Array.isArray(bookings) ? bookings.find(b => b.booking_id === Number(val)) : null;
+      if (!booking || booking.status === 'cancelled') {
+        setUnlockError('Please enter a valid booking ID that belongs to you.');
+        return;
+      }
+      if (booking.status !== 'serving') {
+        setUnlockError('Your booking must be checked in (serving) by the manager before you can order.');
+        return;
+      }
+      setSessionInfo({ type: 'booking', bookingId: booking.booking_id, partySize: booking.party_size, date: booking.booking_date?.slice(0, 10), time: booking.booking_time?.slice(0, 5) });
+      setOrderContext({ type: 'booking', bookingId: booking.booking_id, queueId: null });
+    } catch {
+      setUnlockError('Could not verify booking. Please try again.');
     }
-    const table = getTable(booking.table_id);
-    setSessionInfo({
-      type: 'booking',
-      bookingId: booking.booking_id,
-      queueId: null,
-      table: table ? `Table ${table.table_number} (seats ${table.capacity})` : '—',
-      partySize: booking.party_size,
-      date: booking.booking_date,
-      time: booking.booking_time,
-      canOrder: () => {
-        const now = new Date();
-        const bookingDT = new Date(`${booking.booking_date}T${booking.booking_time}`);
-        return now >= bookingDT;
-      },
-    });
-    setOrderContext({ type: 'booking', bookingId: booking.booking_id, queueId: null });
   }
 
-  function handleQueueIdChange(val) {
-    setQueueIdInput(val.toUpperCase());
+  async function checkQueue(val) {
+    setQueueIdInput(val);
     setBookingIdInput('');
-    setIdError('');
+    setUnlockError('');
     setSessionInfo(null);
     setOrderContext(null);
     if (!val) return;
-    const entry = getQueue(val.toUpperCase());
-    if (!entry || entry.user_id !== user.user_id) {
-      setIdError('Please enter a valid queue ID.');
-      return;
+    try {
+      const res = await api.get(`/queue/user/${user.user_id}`);
+      const entries = Array.isArray(res.data) ? res.data : [];
+      const entry = entries.find(q => q.queue_id === Number(val));
+      if (!entry) {
+        setUnlockError('Please enter a valid queue ID that belongs to you.');
+        return;
+      }
+      if (entry.status !== 'serving') {
+        setUnlockError('Your queue number must be called and seated by the manager before you can order.');
+        return;
+      }
+      setSessionInfo({ type: 'queue', queueId: entry.queue_id, partySize: entry.party_size, date: entry.joined_at?.slice(0, 10), time: entry.joined_at?.slice(11, 16) });
+      setOrderContext({ type: 'queue', bookingId: null, queueId: entry.queue_id });
+    } catch {
+      setUnlockError('Could not verify queue entry. Please try again.');
     }
-    const called = isQueueCalled(entry.queue_id);
-    const table = called ? (entry.table_id ? getTable(entry.table_id) : null) : null;
-    setSessionInfo({
-      type: 'queue',
-      bookingId: null,
-      queueId: entry.queue_id,
-      table: table ? `Table ${table.table_number} (seats ${table.capacity})` : called ? 'Allocated' : 'Pending',
-      partySize: entry.party_size,
-      date: new Date().toLocaleDateString(),
-      time: new Date().toLocaleTimeString(),
-      canOrder: () => isQueueCalled(entry.queue_id),
-    });
-    setOrderContext({ type: 'queue', bookingId: null, queueId: entry.queue_id });
   }
+
+  const allCategories = useMemo(() => {
+    const cats = [...new Set(menuItems.map(i => i.category))];
+    return ['All', ...cats];
+  }, [menuItems]);
 
   const filtered = useMemo(
-    () => menu_items.filter(i => category === 'All' || i.category === category),
-    [category]
+    () => menuItems.filter(i => (i.is_available || i.is_available === 1) && (category === 'All' || i.category === category)),
+    [menuItems, category]
   );
 
   const cartCount = items.reduce((n, i) => n + i.qty, 0);
@@ -84,15 +92,18 @@ export default function Menu() {
     <div className="page">
       <h1>New Order</h1>
 
-      <div className="card" style={{ marginBottom: 20, background: 'var(--paper-dim)', borderColor: 'var(--mustard)' }}>
-        <p style={{ margin: '0 0 6px', fontWeight: 600, fontSize: '0.88rem' }}>Demo instructions</p>
-        <ul style={{ margin: 0, paddingLeft: 18, fontSize: '0.85rem', color: '#6b6558', lineHeight: 1.7 }}>
-          <li>Enter <strong>Booking ID 1</strong> to load Alice's confirmed booking (booking time in the past, so Place Order will be unlocked immediately).</li>
-          <li>Enter <strong>Queue ID A015</strong> to load Alice's called queue entry (already called, so Place Order is unlocked).</li>
-          <li>Enter any other ID to see the "invalid ID" error and the menu Add buttons will remain disabled.</li>
-          <li>Leave both fields empty — the menu is visible for browsing but no items can be added.</li>
-        </ul>
-      </div>
+      {!sessionInfo && (
+        <div className="card" style={{ marginBottom: 20, background: 'var(--paper-dim)', borderColor: 'var(--mustard)' }}>
+          <h3 style={{ marginBottom: 8 }}>🔒 Order Access Required</h3>
+          <p style={{ color: '#6b6558', fontSize: '0.88rem', marginBottom: 12 }}>
+            To place an order, you must have an <strong>arrived booking</strong> or a <strong>called queue number</strong>.
+            Please enter your booking ID or queue ID below to unlock ordering.
+          </p>
+          <p style={{ color: '#6b6558', fontSize: '0.82rem' }}>
+            Don't have either? <Link to="/booking" style={{ color: 'var(--green)' }}>Make a reservation</Link> or <Link to="/queue" style={{ color: 'var(--green)' }}>join the queue</Link> first.
+          </p>
+        </div>
+      )}
 
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 8 }}>
         <div className="field" style={{ margin: 0 }}>
@@ -100,7 +111,7 @@ export default function Menu() {
           <input
             placeholder="Enter Booking ID"
             value={bookingIdInput}
-            onChange={e => handleBookingIdChange(e.target.value)}
+            onChange={e => checkBooking(e.target.value)}
           />
         </div>
         <div className="field" style={{ margin: 0 }}>
@@ -108,35 +119,39 @@ export default function Menu() {
           <input
             placeholder="Enter Queue ID"
             value={queueIdInput}
-            onChange={e => handleQueueIdChange(e.target.value)}
+            onChange={e => checkQueue(e.target.value)}
           />
         </div>
       </div>
       <p style={{ color: '#6b6558', fontSize: '0.82rem', marginBottom: 16 }}>Enter only one — the other will be cleared</p>
 
-      {idError && (
+      {unlockError && (
         <div className="card" style={{ borderColor: 'var(--rust)', marginBottom: 16 }}>
-          <p style={{ color: 'var(--rust)', margin: 0 }}>{idError}</p>
+          <p style={{ color: 'var(--rust)', margin: 0, fontSize: '0.88rem' }}>{unlockError}</p>
         </div>
       )}
 
       {sessionInfo && (
         <div className="card" style={{ marginBottom: 20, borderColor: 'var(--green)' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+            <span style={{ fontSize: '1.2rem' }}>✓</span>
+            <strong>Order unlocked</strong>
+          </div>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+            <div><span style={{ fontSize: '0.8rem', fontWeight: 600 }}>Type</span><div>{sessionInfo.type === 'booking' ? 'Booking' : 'Queue'}</div></div>
             <div><span style={{ fontSize: '0.8rem', fontWeight: 600 }}>Date</span><div>{sessionInfo.date}</div></div>
-            <div><span style={{ fontSize: '0.8rem', fontWeight: 600 }}>Time</span><div>{sessionInfo.time}</div></div>
             <div><span style={{ fontSize: '0.8rem', fontWeight: 600 }}>Party Size</span><div>{sessionInfo.partySize} people</div></div>
-            <div><span style={{ fontSize: '0.8rem', fontWeight: 600 }}>Table</span><div>{sessionInfo.table}</div></div>
+            <div><span style={{ fontSize: '0.8rem', fontWeight: 600 }}>Time</span><div>{sessionInfo.time}</div></div>
           </div>
         </div>
       )}
 
       <div style={{ textAlign: 'center', borderTop: '1px solid var(--line)', borderBottom: '1px solid var(--line)', padding: '8px 0', marginBottom: 20, color: '#6b6558', fontSize: '0.85rem', letterSpacing: '2px' }}>
-        ◆ MENU{!sessionInfo ? ' (VIEW ONLY)' : ''} ◆
+        ◆ MENU{!sessionInfo ? ' (VIEW ONLY — unlock to order)' : ''} ◆
       </div>
 
       <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 16 }}>
-        {['All', ...categories].map(c => (
+        {allCategories.map(c => (
           <button
             key={c}
             onClick={() => setCategory(c)}
@@ -152,14 +167,14 @@ export default function Menu() {
         <div className="ticket-row" key={item.item_id}>
           <span className="name">{item.name}</span>
           <span className="leader" />
-          <span className="price">${item.price}</span>
-          {item.is_available ? (
+          <span className="price">${Number(item.price).toFixed(0)}</span>
+          {(item.is_available || item.is_available === 1) ? (
             <button
               className="btn"
               style={{ padding: '4px 12px', fontSize: '0.85rem' }}
               onClick={() => addItem(item)}
               disabled={!sessionInfo}
-              title={!sessionInfo ? 'Enter a Booking ID or Queue ID first' : ''}
+              title={!sessionInfo ? 'Unlock ordering with a Booking ID or Queue ID first' : ''}
             >
               +
             </button>

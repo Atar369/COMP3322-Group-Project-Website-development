@@ -1,0 +1,16 @@
+# dependencies and build output
+node_modules/
+dist/
+Frontend/node_modules/
+Frontend/dist/
+Backend/node_modules/
+
+# real secrets (never commit these)
+.env
+.env.local
+.env.*.local
+
+# logs and OS/editor files
+*.log
+.DS_Store
+.vscode/

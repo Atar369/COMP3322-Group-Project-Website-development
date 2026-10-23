@@ -2,10 +2,12 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 
 const actions = [
-  { label: 'Book a Table',   desc: 'Reserve a table for your visit',       path: '/booking' },
-  { label: 'Join Queue',     desc: 'Get in line and wait for a table',      path: '/queue'   },
-  { label: 'Start Ordering',    desc: 'View dishes and add items to your cart', path: '/menu'    },
-  { label: 'View Cart',      desc: 'Review and place your order',           path: '/cart'    },
+  { label: 'Book a Table',     desc: 'Reserve a table and pre-order courses',  path: '/booking' },
+  { label: 'Join Queue',       desc: 'Get in line for a walk-in table',        path: '/queue'   },
+  { label: 'View Menu',        desc: 'Browse our full menu',                   path: '/view-menu' },
+  { label: 'Manage Bookings',  desc: 'Edit reservations and pre-order courses', path: '/booking-management' },
+  { label: 'Place an Order',   desc: 'Order when checked in — serving state unlocks ordering',  path: '/order-management'    },
+  { label: 'View Cart',        desc: 'Review and place your order',            path: '/cart'    },
 ];
 
 export default function CustomerDashboard() {

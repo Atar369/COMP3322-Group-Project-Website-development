@@ -13,6 +13,8 @@ app.get("/api/health", (_request, response) => {
 
 app.use("/api/booking", require("./Routes/bookingRoutes"));
 app.use('/api/auth', require('./Routes/authRoutes'));
+app.use('/api/orders', require('./Routes/orderRoutes'));
+app.use('/api/queue', require('./Routes/queueRoutes'));
 
 app.listen(port, () => {
   console.log(`Backend listening on port ${port}`);

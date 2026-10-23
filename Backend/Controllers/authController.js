@@ -117,3 +117,73 @@ exports.me = async (req, res) => {
     res.status(500).json({ error: 'Internal server error' });
   }
 };
+
+// POST /api/auth/change-password (protected)
+exports.changePassword = async (req, res) => {
+  try {
+    const { currentPassword, newPassword } = req.body;
+    if (!currentPassword || !newPassword) {
+      return res.status(400).json({ error: 'Current and new password are required' });
+    }
+    if (newPassword.length < 6) {
+      return res.status(400).json({ error: 'New password must be at least 6 characters' });
+    }
+
+    const [rows] = await pool.query(
+      'SELECT password_hash FROM users WHERE user_id = ?',
+      [req.user.user_id]
+    );
+    if (rows.length === 0) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    const match = await bcrypt.compare(currentPassword, rows[0].password_hash);
+    if (!match) {
+      return res.status(401).json({ error: 'Current password is incorrect' });
+    }
+
+    const newHash = await bcrypt.hash(newPassword, 10);
+    await pool.query('UPDATE users SET password_hash = ? WHERE user_id = ?', [newHash, req.user.user_id]);
+    res.status(200).json({ message: 'Password changed successfully' });
+  } catch (err) {
+    console.error('Change password error:', err);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+};
+
+// POST /api/auth/forgot-password
+exports.forgotPassword = async (req, res) => {
+  try {
+    const { name, email, phone } = req.body;
+    if (!name || !email || !phone) {
+      return res.status(400).json({ error: 'Name, email, and phone are required' });
+    }
+
+    const [rows] = await pool.query(
+      'SELECT user_id, name, email FROM users WHERE LOWER(name) = LOWER(?) AND LOWER(email) = LOWER(?) AND phone = ?',
+      [name.trim(), email.trim(), phone.trim()]
+    );
+
+    if (rows.length === 0) {
+      return res.status(404).json({ error: 'No account found matching these details. Please check your information.' });
+    }
+
+    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789';
+    let newPassword = '';
+    for (let i = 0; i < 10; i++) newPassword += chars[Math.floor(Math.random() * chars.length)];
+
+    const newHash = await bcrypt.hash(newPassword, 10);
+    await pool.query('UPDATE users SET password_hash = ? WHERE user_id = ?', [newHash, rows[0].user_id]);
+
+    // Store reset record in password_resets table for audit
+    await pool.query(
+      'INSERT INTO password_resets (user_id, new_password) VALUES (?, ?)',
+      [rows[0].user_id, newPassword]
+    );
+
+    res.status(200).json({ message: 'Password has been reset.', newPassword });
+  } catch (err) {
+    console.error('Forgot password error:', err);
+    res.status(500).json({ error: 'Failed to reset password. Please try again later.' });
+  }
+};

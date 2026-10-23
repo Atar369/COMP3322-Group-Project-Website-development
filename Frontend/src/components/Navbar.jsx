@@ -41,26 +41,34 @@ export default function Navbar() {
 
   return (
     <nav className="nav">
-      <Link to="/" className="brand">The Kitchen Ledger</Link>
+      <Link to="/" className="brand">
+        <span className="brand-main">The Kitchen Ledger</span>
+        <span className="brand-sub">Ember &amp; Oak</span>
+      </Link>
       <div className="nav-links">
-        {!user && <Link to="/welcome">Log in</Link>}
+        {!user && <>
+          <Link to="/home">Home</Link>
+          <Link to="/welcome">Log in</Link>
+        </>}
 
         {user?.role === 'customer' && <>
+          <Link to="/home">Home</Link>
           <Dropdown label="Menu" links={[
             { to: '/view-menu', label: 'View Menu' }
           ]} />
           <Dropdown label="Order" links={[
-            { to: '/menu', label: 'New Order' },
-            { to: '/order-management', label: 'Cart' },
+            { to: '/order-management', label: 'My Orders' },
+            { to: '/menu', label: 'Browse & Order' },
+            { to: '/cart', label: 'Cart' },
             { to: '/order-history', label: 'Order History' },
           ]} />
           <Dropdown label="Queue" links={[
             { to: '/queue', label: 'Join Queue' },
             { to: '/queue-history', label: 'Queue History' },
           ]} />
-          <Dropdown label="Book a Table" links={[
+          <Dropdown label="Reservation" links={[
             { to: '/booking', label: 'New Booking' },
-            { to: '/booking-management', label: 'Booking Management' },
+            { to: '/booking-management', label: 'Manage / Edit Courses' },
             { to: '/booking-history', label: 'Booking History' },
           ]} />
           <Link to="/profile">Personal Information</Link>
@@ -68,6 +76,7 @@ export default function Navbar() {
         </>}
 
         {user?.role === 'manager' && <>
+          <Link to="/manager/dashboard">Dashboard</Link>
           <Link to="/manager/menu">Menu</Link>
           <Link to="/manager/orders">Orders</Link>
           <Dropdown label="Queue" links={[
@@ -75,7 +84,6 @@ export default function Navbar() {
             { to: '/manager/queue-history', label: 'Queue History' },
           ]} />
           <Link to="/manager/bookings">Bookings</Link>
-          <Link to="/manager/dashboard">Dashboard</Link>
           <Link to="/profile">Personal Information</Link>
           <button onClick={handleLogout}>Log out</button>
         </>}
