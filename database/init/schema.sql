@@ -3,22 +3,26 @@
 --   CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci;
 -- USE comp3322_restaurant;
 
-CREATE TABLE users (
+CREATE TABLE IF NOT EXISTS users (
   user_id INT UNSIGNED NOT NULL AUTO_INCREMENT,
   name VARCHAR(100) NOT NULL,
+  manager_id VARCHAR(50) NULL,
   email VARCHAR(255) NOT NULL,
-  phone VARCHAR(30) NOT NULL,
+  phone VARCHAR(30) NULL,
   password_hash VARCHAR(255) NOT NULL,
   role VARCHAR(8) NOT NULL DEFAULT 'customer',
+  reset_token VARCHAR(255) NULL,
+  reset_token_expires DATETIME NULL,
   created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (user_id),
+  UNIQUE KEY uq_users_manager_id (manager_id),
   UNIQUE KEY uq_users_email (email),
   UNIQUE KEY uq_users_phone (phone),
   CONSTRAINT chk_users_role CHECK (role IN ('customer', 'manager'))
 ) ENGINE=InnoDB;
 
-CREATE TABLE menu_items (
+CREATE TABLE IF NOT EXISTS menu_items (
   item_id INT UNSIGNED NOT NULL AUTO_INCREMENT,
   name VARCHAR(120) NOT NULL,
   description TEXT NULL,
@@ -34,11 +38,24 @@ CREATE TABLE menu_items (
   CONSTRAINT chk_menu_available CHECK (is_available IN (0, 1))
 ) ENGINE=InnoDB;
 
-CREATE TABLE orders (
+CREATE TABLE IF NOT EXISTS restaurant_tables (
+  table_id INT UNSIGNED NOT NULL AUTO_INCREMENT,
+  table_number INT UNSIGNED NOT NULL,
+  capacity INT UNSIGNED NOT NULL,
+  status VARCHAR(11) NOT NULL DEFAULT 'available',
+  PRIMARY KEY (table_id),
+  UNIQUE KEY uq_tables_number (table_number),
+  CONSTRAINT chk_tables_number CHECK (table_number > 0),
+  CONSTRAINT chk_tables_capacity CHECK (capacity > 0),
+  CONSTRAINT chk_tables_status CHECK (status IN ('available', 'unavailable'))
+) ENGINE=InnoDB;
+
+CREATE TABLE IF NOT EXISTS orders (
   order_id INT UNSIGNED NOT NULL AUTO_INCREMENT,
   user_id INT UNSIGNED NOT NULL,
   booking_id INT UNSIGNED NULL,
   queue_id INT UNSIGNED NULL,
+  table_id INT UNSIGNED NULL,
   order_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   status VARCHAR(12) NOT NULL DEFAULT 'pending',
   total_amount DECIMAL(10,2) NOT NULL DEFAULT 0.00,
@@ -49,14 +66,17 @@ CREATE TABLE orders (
   KEY idx_orders_user_time (user_id, order_time),
   KEY idx_orders_time (order_time),
   KEY idx_orders_status_time (status, order_time),
+  KEY idx_orders_table_payment (table_id, payment_status),
   CONSTRAINT fk_orders_user FOREIGN KEY (user_id) REFERENCES users (user_id)
     ON DELETE RESTRICT ON UPDATE RESTRICT,
+  CONSTRAINT fk_orders_table FOREIGN KEY (table_id) REFERENCES restaurant_tables (table_id)
+    ON DELETE SET NULL ON UPDATE RESTRICT,
   CONSTRAINT chk_orders_status CHECK (status IN ('pending', 'preparing', 'ready', 'completed', 'cancelled')),
   CONSTRAINT chk_orders_total CHECK (total_amount >= 0),
   CONSTRAINT chk_orders_payment CHECK (payment_status IN ('unpaid', 'paid', 'refunded'))
 ) ENGINE=InnoDB;
 
-CREATE TABLE order_items (
+CREATE TABLE IF NOT EXISTS order_items (
   order_item_id INT UNSIGNED NOT NULL AUTO_INCREMENT,
   order_id INT UNSIGNED NOT NULL,
   item_id INT UNSIGNED NOT NULL,
@@ -74,33 +94,21 @@ CREATE TABLE order_items (
   CONSTRAINT chk_order_items_price CHECK (unit_price >= 0)
 ) ENGINE=InnoDB;
 
-CREATE TABLE restaurant_tables (
-  table_id INT UNSIGNED NOT NULL AUTO_INCREMENT,
-  table_number INT UNSIGNED NOT NULL,
-  capacity INT UNSIGNED NOT NULL,
-  status VARCHAR(11) NOT NULL DEFAULT 'available',
-  PRIMARY KEY (table_id),
-  UNIQUE KEY uq_tables_number (table_number),
-  CONSTRAINT chk_tables_number CHECK (table_number > 0),
-  CONSTRAINT chk_tables_capacity CHECK (capacity > 0),
-  CONSTRAINT chk_tables_status CHECK (status IN ('available', 'unavailable'))
-) ENGINE=InnoDB;
-
-CREATE TABLE bookings (
+CREATE TABLE IF NOT EXISTS bookings (
   booking_id INT UNSIGNED NOT NULL AUTO_INCREMENT,
   user_id INT UNSIGNED NOT NULL,
   table_id INT UNSIGNED NOT NULL,
   booking_date DATE NOT NULL,
   booking_time TIME NOT NULL,
   party_size INT UNSIGNED NOT NULL,
-  status VARCHAR(9) NOT NULL DEFAULT 'reserved',
+  status VARCHAR(9) NOT NULL DEFAULT 'booked',
   special_request TEXT NULL,
   pre_order JSON NULL,
   served_at DATETIME NULL,
   created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   active_slot TINYINT GENERATED ALWAYS AS
-    (CASE WHEN status IN ('reserved', 'serving', 'finished') THEN 1 ELSE NULL END) STORED,
+    (CASE WHEN status IN ('booked', 'serving', 'finished') THEN 1 ELSE NULL END) STORED,
   PRIMARY KEY (booking_id),
   UNIQUE KEY uq_bookings_active_slot (table_id, booking_date, booking_time, active_slot),
   KEY idx_bookings_date_time (booking_date, booking_time),
@@ -110,27 +118,50 @@ CREATE TABLE bookings (
   CONSTRAINT fk_bookings_table FOREIGN KEY (table_id) REFERENCES restaurant_tables (table_id)
     ON DELETE RESTRICT ON UPDATE RESTRICT,
   CONSTRAINT chk_bookings_party CHECK (party_size > 0),
-  CONSTRAINT chk_bookings_status CHECK (status IN ('reserved', 'cancelled', 'no_show', 'serving', 'finished', 'paid'))
+  CONSTRAINT chk_bookings_status CHECK (status IN ('booked', 'cancelled', 'no_show', 'serving', 'finished', 'paid'))
 ) ENGINE=InnoDB;
 
-CREATE TABLE queue_entries (
+CREATE TABLE IF NOT EXISTS queue_entries (
   queue_id INT UNSIGNED NOT NULL AUTO_INCREMENT,
   user_id INT UNSIGNED NOT NULL,
   party_size INT UNSIGNED NOT NULL,
+  queue_number VARCHAR(5) NULL,
+  queue_date DATE NOT NULL DEFAULT (CURDATE()),
   joined_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   status VARCHAR(9) NOT NULL DEFAULT 'queued',
+  table_id INT UNSIGNED NULL,
+  reserved_table_id INT UNSIGNED NULL,
   called_at DATETIME NULL,
   served_at DATETIME NULL,
+  rejoin_count INT UNSIGNED NOT NULL DEFAULT 0,
   PRIMARY KEY (queue_id),
   KEY idx_queue_status_joined (status, joined_at, queue_id),
   KEY idx_queue_user_joined (user_id, joined_at),
+  KEY idx_queue_number_date (queue_number, queue_date),
+  KEY idx_queue_table_status (table_id, status),
+  KEY idx_queue_reserved_table (reserved_table_id, status),
   CONSTRAINT fk_queue_user FOREIGN KEY (user_id) REFERENCES users (user_id)
     ON DELETE RESTRICT ON UPDATE RESTRICT,
+  CONSTRAINT fk_queue_table FOREIGN KEY (table_id) REFERENCES restaurant_tables (table_id)
+    ON DELETE SET NULL ON UPDATE RESTRICT,
+  CONSTRAINT fk_queue_reserved_table FOREIGN KEY (reserved_table_id) REFERENCES restaurant_tables (table_id)
+    ON DELETE SET NULL ON UPDATE RESTRICT,
   CONSTRAINT chk_queue_party CHECK (party_size > 0),
-  CONSTRAINT chk_queue_status CHECK (status IN ('queued', 'called', 'serving', 'finished', 'paid', 'cancelled'))
+  CONSTRAINT chk_queue_status CHECK (status IN ('queued', 'called', 'serving', 'missed', 'finished', 'paid', 'cancelled'))
 ) ENGINE=InnoDB;
 
-CREATE TABLE password_resets (
+CREATE TABLE IF NOT EXISTS queue_auto_call_settings (
+  group_code CHAR(1) NOT NULL,
+  enabled BOOLEAN NOT NULL DEFAULT FALSE,
+  updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (group_code),
+  CONSTRAINT chk_queue_auto_call_group CHECK (group_code IN ('A', 'B', 'C'))
+) ENGINE=InnoDB;
+
+INSERT IGNORE INTO queue_auto_call_settings (group_code, enabled)
+VALUES ('A', FALSE), ('B', FALSE), ('C', FALSE);
+
+CREATE TABLE IF NOT EXISTS password_resets (
   reset_id INT UNSIGNED NOT NULL AUTO_INCREMENT,
   user_id INT UNSIGNED NOT NULL,
   new_password VARCHAR(20) NOT NULL,

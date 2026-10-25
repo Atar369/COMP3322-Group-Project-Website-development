@@ -14,7 +14,7 @@ export default function CustomerLogin() {
     const result = await login(email, password);
     if (result.error) { setError(result.error); return; }
     if (result.user.role === 'customer') {
-      navigate('/dashboard');
+      navigate('/home', { replace: true });
     } else {
       setError('This account is not a customer account.');
     }
@@ -25,7 +25,7 @@ export default function CustomerLogin() {
       <h1>Customer Login</h1>
       <p style={{ color: '#6b6558', fontSize: '0.9rem' }}>
         Demo accounts — customer: 
-        alice@example.com (pw: testing000), alex@example.com (pw: testing001), blair@example.com (pw: testing002), casey@example.com (pw: testing003)
+        alice@example.com (pw: password), alex@example.com (pw: password), blair@example.com (pw: password), casey@example.com (pw: password)
       </p>
       <form onSubmit={handleSubmit}>
         <div className="field">

@@ -56,17 +56,15 @@ export default function Navbar() {
           <Dropdown label="Menu" links={[
             { to: '/view-menu', label: 'View Menu' }
           ]} />
-          <Dropdown label="Order" links={[
-            { to: '/order-management', label: 'My Orders' },
-            { to: '/menu', label: 'Browse & Order' },
-            { to: '/cart', label: 'Cart' },
+          <Dropdown label="Orders" links={[
+            { to: '/order-management', label: 'Orders & Cart' },
             { to: '/order-history', label: 'Order History' },
           ]} />
           <Dropdown label="Queue" links={[
             { to: '/queue', label: 'Join Queue' },
             { to: '/queue-history', label: 'Queue History' },
           ]} />
-          <Dropdown label="Reservation" links={[
+          <Dropdown label="Bookings" links={[
             { to: '/booking', label: 'New Booking' },
             { to: '/booking-management', label: 'Manage / Edit Courses' },
             { to: '/booking-history', label: 'Booking History' },
@@ -84,6 +82,7 @@ export default function Navbar() {
             { to: '/manager/queue-history', label: 'Queue History' },
           ]} />
           <Link to="/manager/bookings">Bookings</Link>
+          <Link to="/manager/create-manager">New Manager Registration</Link>
           <Link to="/profile">Personal Information</Link>
           <button onClick={handleLogout}>Log out</button>
         </>}

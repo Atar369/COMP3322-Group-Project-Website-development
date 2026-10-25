@@ -24,7 +24,7 @@ export default function ManagerLogin() {
     <div className="page" style={{ maxWidth: 380 }}>
       <h1>Manager Login</h1>
       <p style={{ color: '#6b6558', fontSize: '0.9rem' }}>
-        Demo accounts — manager: manager@example.com (pw: testing004)
+        Demo account — manager@example.com (password: password)
       </p>
       <form onSubmit={handleSubmit}>
         <div className="field">
@@ -38,7 +38,6 @@ export default function ManagerLogin() {
         {error && <p className="error-text">{error}</p>}
         <button className="btn" type="submit">Log in</button>
       </form>
-      <p style={{ marginTop: 16 }}>New Manager? <Link to="/register/manager">Register</Link></p>
       <p style={{ marginTop: 8 }}><Link to="/forgot-password">Forgot password?</Link></p>
       <p style={{ marginTop: 12 }}><Link to="/login">Back to choice</Link></p>
     </div>

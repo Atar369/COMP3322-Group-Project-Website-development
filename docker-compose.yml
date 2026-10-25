@@ -22,6 +22,9 @@ services:
       - DB_PASSWORD=${DB_ROOT_PASSWORD}
       - DB_NAME=${DB_NAME}
       - JWT_SECRET=${JWT_SECRET}
+      - MENU_IMAGE_DIR=/app/uploads/menu-images
+    volumes:
+      - ./Frontend/public/menu-images:/app/uploads/menu-images
     depends_on:
       db:
         condition: service_healthy

@@ -9,9 +9,7 @@ import HomePage from './pages/HomePage';
 import CustomerLogin from './pages/CustomerLogin';
 import ManagerLogin from './pages/ManagerLogin';
 import CustomerRegister from './pages/CustomerRegister';
-import ManagerRegister from './pages/ManagerRegister';
 import ForgotPassword from './pages/ForgotPassword';
-import CustomerDashboard from './pages/CustomerDashboard';
 import Menu from './pages/Menu';
 import ViewMenu from './pages/ViewMenu';
 import Cart from './pages/Cart';
@@ -31,6 +29,7 @@ import ManagerQueue from './pages/manager/ManagerQueue';
 import ManagerQueueHistory from './pages/manager/ManagerQueueHistory';
 import ManagerBookings from './pages/manager/ManagerBookings';
 import ManagerDashboard from './pages/manager/ManagerDashboard';
+import CreateManager from './pages/manager/CreateManager';
 
 function Home() {
   const { user, loading } = useAuth();
@@ -55,10 +54,11 @@ export default function App() {
               <Route path="/login/customer" element={<CustomerLogin />} />
               <Route path="/login/manager" element={<ManagerLogin />} />
               <Route path="/register/customer" element={<CustomerRegister />} />
-              <Route path="/register/manager" element={<ManagerRegister />} />
+              <Route path="/register/manager" element={<Navigate to="/welcome" replace />} />
               <Route path="/forgot-password" element={<ForgotPassword />} />
+              <Route path="/reset-password" element={<ForgotPassword />} />
 
-              <Route path="/dashboard" element={<ProtectedRoute role="customer"><CustomerDashboard /></ProtectedRoute>} />
+              <Route path="/dashboard" element={<Navigate to="/home" replace />} />
               <Route path="/view-menu" element={<ProtectedRoute role="customer"><ViewMenu /></ProtectedRoute>} />
               <Route path="/menu" element={<ProtectedRoute role="customer"><Menu /></ProtectedRoute>} />
               <Route path="/cart" element={<ProtectedRoute role="customer"><Cart /></ProtectedRoute>} />
@@ -78,6 +78,7 @@ export default function App() {
               <Route path="/manager/queue-history" element={<ProtectedRoute role="manager"><ManagerQueueHistory /></ProtectedRoute>} />
               <Route path="/manager/bookings" element={<ProtectedRoute role="manager"><ManagerBookings /></ProtectedRoute>} />
               <Route path="/manager/dashboard" element={<ProtectedRoute role="manager"><ManagerDashboard /></ProtectedRoute>} />
+              <Route path="/manager/create-manager" element={<ProtectedRoute role="manager"><CreateManager /></ProtectedRoute>} />
             </Routes>
           </div>
         </BrowserRouter>

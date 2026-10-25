@@ -78,7 +78,27 @@ npm install
 npm run dev
 ```
 
-The Vite dev server runs at <http://localhost:5173> and proxies `/api` and `/socket.io` to the backend at `http://localhost:5000`.
+The Vite dev server runs at <http://localhost:3000> and proxies `/api` and `/socket.io` to the backend at `http://localhost:5000`.
+
+## Create the first manager
+
+Public registration always creates customer accounts. Create the first manager once by running the bootstrap command against the running database. Set `BOOTSTRAP_MANAGER_NAME`, `BOOTSTRAP_MANAGER_ID`, `BOOTSTRAP_MANAGER_EMAIL`, `BOOTSTRAP_MANAGER_PHONE`, and `BOOTSTRAP_MANAGER_PASSWORD` in your local environment first. Choose a unique manager ID and phone number and a strong password. Do not put the password directly in a command or commit it to a file.
+
+With Docker Compose:
+
+```sh
+docker compose run --rm \
+  -e BOOTSTRAP_MANAGER_NAME \
+  -e BOOTSTRAP_MANAGER_ID \
+  -e BOOTSTRAP_MANAGER_EMAIL \
+  -e BOOTSTRAP_MANAGER_PHONE \
+  -e BOOTSTRAP_MANAGER_PASSWORD \
+  backend npm run bootstrap-manager
+```
+
+The command refuses to create an account if any manager already exists. Apply `database/migrations/20261025_add_manager_id.sql` to an existing database before running it. Afterward, sign in at `/login/manager` with the manager's email; the manager ID is for identification and is not a login credential. The manager can create additional managers from **New Manager Registration** in the manager navigation. The API enforces manager-only access independently of the page.
+
+For a local backend, set the bootstrap variables in the backend process environment and run `npm run bootstrap-manager` from `Backend`. The bootstrap password must be at least 12 characters and is hashed with bcrypt before storage.
 
 ## Demo accounts
 
@@ -86,6 +106,8 @@ The Vite dev server runs at <http://localhost:5173> and proxies `/api` and `/soc
 | -------- | --------------------- | ------------ |
 | Customer | alice@example.com     | [password]   |
 | Manager  | manager@example.com   | [password]   |
+
+Managers sign in using their email address. This shared demo credential is for local coursework/demo use only. Replace or remove it before deploying the app publicly; for a custom first manager, use the bootstrap process above.
 
 ## Notes
 

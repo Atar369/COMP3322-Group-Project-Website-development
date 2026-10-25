@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom';
 import { useState, useEffect, useMemo } from 'react';
 import { useAuth } from '../context/AuthContext';
+import Pagination, { usePagination } from '../components/Pagination';
 
 export default function BookingManagement() {
   const { user } = useAuth();
@@ -14,12 +15,15 @@ export default function BookingManagement() {
   const [allTables, setAllTables] = useState([]);
   const [availableTables, setAvailableTables] = useState([]);
   const [saveMsg, setSaveMsg] = useState('');
+  const [search, setSearch] = useState('');
+  const [sortBy, setSortBy] = useState('soonest');
+  const [bookingFilters, setBookingFilters] = useState({ dateFrom: '', dateTo: '', partySize: '' });
 
   function load() {
     if (!user) return;
     fetch(`/api/booking/user/${user.user_id}`)
       .then(r => r.json())
-      .then(d => setUserBookings(Array.isArray(d) ? d.filter(b => b.status === 'reserved') : []))
+      .then(d => setUserBookings(Array.isArray(d) ? d.filter(b => b.status === 'booked') : []))
       .catch(() => setUserBookings([]));
   }
 
@@ -134,34 +138,94 @@ export default function BookingManagement() {
     () => menuItems.filter(i => i.is_available && (preOrderCategory === 'All' || i.category === preOrderCategory)),
     [menuItems, preOrderCategory]
   );
+  const preOrderPagination = usePagination(filteredMenu, preOrderCategory);
 
   const preOrderTotal = preOrder.reduce((sum, i) => sum + i.price * i.qty, 0);
+  const filteredBookings = useMemo(() => {
+    const term = search.trim().toLowerCase();
+    return userBookings.filter(booking => {
+      const date = String(booking.booking_date || '').slice(0, 10);
+      const searchable = [
+        String(booking.booking_id),
+        date,
+        String(booking.booking_time || '').slice(0, 5),
+        String(booking.table_number || booking.table_id || ''),
+        String(booking.party_size),
+        booking.special_request || '',
+      ];
+      return (!bookingFilters.dateFrom || date >= bookingFilters.dateFrom)
+        && (!bookingFilters.dateTo || date <= bookingFilters.dateTo)
+        && (!bookingFilters.partySize || Number(booking.party_size) === Number(bookingFilters.partySize))
+        && (!term || searchable.some(value => value.toLowerCase().includes(term)));
+    }).sort((a, b) => {
+      const timeA = new Date(`${String(a.booking_date).slice(0, 10)}T${String(a.booking_time || '').slice(0, 5)}`).getTime();
+      const timeB = new Date(`${String(b.booking_date).slice(0, 10)}T${String(b.booking_time || '').slice(0, 5)}`).getTime();
+      return sortBy === 'latest' ? timeB - timeA : timeA - timeB;
+    });
+  }, [userBookings, search, bookingFilters, sortBy]);
+  const bookingsPagination = usePagination(filteredBookings, `${JSON.stringify(bookingFilters)}|${search}|${sortBy}`);
+
+  function clearBookingFilters() {
+    setSearch('');
+    setSortBy('soonest');
+    setBookingFilters({ dateFrom: '', dateTo: '', partySize: '' });
+  }
 
   return (
-    <div className="page" style={{ maxWidth: 900 }}>
+    <div className="page customer-history-page booking-management-page">
       <h1>Booking Management</h1>
+      <p className="customer-history-intro">Manage upcoming bookings and edit their pre-order courses.</p>
       {error && <p className="error-text">{error}</p>}
       {saveMsg && <p style={{ color: 'var(--green)', fontWeight: 600 }}>{saveMsg}</p>}
-      {userBookings.length === 0 && !editingId ? (
-        <p>No active bookings. <Link to="/booking">Create a new booking</Link></p>
+      <div className="manager-orders-workspace">
+        <aside className="manager-orders-filter-panel" aria-label="Filter active bookings">
+          <div className="manager-orders-filter-heading">
+            <div><span className="manager-orders-filter-eyebrow">REFINE</span><h2>Find bookings</h2></div>
+            <button type="button" onClick={clearBookingFilters}>Clear</button>
+          </div>
+          <label className="manager-orders-filter-field">Date from<input type="date" value={bookingFilters.dateFrom} onChange={event => setBookingFilters(previous => ({ ...previous, dateFrom: event.target.value }))} /></label>
+          <label className="manager-orders-filter-field">Date to<input type="date" value={bookingFilters.dateTo} onChange={event => setBookingFilters(previous => ({ ...previous, dateTo: event.target.value }))} /></label>
+          <label className="manager-orders-filter-field">Party size<input type="number" min="1" placeholder="Any size" value={bookingFilters.partySize} onChange={event => setBookingFilters(previous => ({ ...previous, partySize: event.target.value }))} /></label>
+          <p className="manager-orders-dinein-note">Only upcoming bookings can be edited or cancelled.</p>
+        </aside>
+        <section className="manager-orders-results" aria-label="Active booking results" data-pagination-anchor>
+          <div className="manager-orders-searchbar">
+            <label><span aria-hidden="true">⌕</span><span className="visually-hidden">Search bookings</span>
+              <input type="search" placeholder="Search booking, table, date, time or request" value={search} onChange={event => setSearch(event.target.value)} />
+            </label>
+            <label className="manager-orders-sort"><span>Sort by</span>
+              <select aria-label="Sort bookings" value={sortBy} onChange={event => setSortBy(event.target.value)}>
+                <option value="soonest">Soonest first</option><option value="latest">Latest first</option>
+              </select>
+            </label>
+          </div>
+          <p className="manager-orders-result-count">{filteredBookings.length} {filteredBookings.length === 1 ? 'booking' : 'bookings'}</p>
+      {filteredBookings.length === 0 && !editingId ? (
+        <p className="manager-queue-history-empty">
+          {userBookings.length === 0 ? <>No active bookings. <Link to="/booking">Create a new booking</Link></> : 'No bookings match these filters.'}
+        </p>
       ) : (
-        userBookings.map(b => (
+        <div className="booking-management-list">{bookingsPagination.pageItems.map(b => (
           <div key={b.booking_id}>
-            <div className="ticket-row">
-              <span className="name">Booking #{b.booking_id}</span>
-              <span className="leader" />
-              <span className="price">{b.booking_date?.slice(0, 10)} {b.booking_time?.slice(0, 5)}</span>
-              <span className="desc">Party of {b.party_size}</span>
+            <article className="manager-booking-customer-card">
+              <div className="manager-booking-customer-primary">
+                <strong>Booking #{b.booking_id}</strong>
+                <span>{b.booking_date?.slice(0, 10)} · {b.booking_time?.slice(0, 5)}</span>
+              </div>
+              <div className="manager-booking-customer-details">
+                <span><strong>Table:</strong> #{b.table_number || b.table_id}</span>
+                <span><strong>Party:</strong> {b.party_size} people</span>
               {b.pre_order && (() => {
                 try {
                   const items = typeof b.pre_order === 'string' ? JSON.parse(b.pre_order) : b.pre_order;
                   if (Array.isArray(items) && items.length > 0) {
-                    return <span className="desc" style={{ color: 'var(--green)' }}>Pre-order: {items.length} course(s)</span>;
+                    return <span className="manager-booking-preorder-count">{items.length} pre-order course(s)</span>;
                   }
                 } catch { /* ignore */ }
                 return null;
               })()}
-              <div style={{ display: 'flex', gap: 8, marginLeft: 12 }}>
+              </div>
+              <div className="manager-booking-customer-actions">
                 <button
                   type="button"
                   className="btn secondary"
@@ -179,39 +243,42 @@ export default function BookingManagement() {
                   Cancel
                 </button>
               </div>
-            </div>
+              </article>
 
             {editingId === b.booking_id && editForm && (
               <div className="card" style={{ marginTop: 12, marginBottom: 24, borderColor: 'var(--mustard)' }}>
-                <h3>Edit Booking #{b.booking_id}</h3>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12, marginBottom: 12 }}>
-                  <div className="field" style={{ margin: 0 }}>
-                    <label>Date</label>
-                    <input type="date" value={editForm.booking_date} onChange={e => setEditForm(f => ({ ...f, booking_date: e.target.value }))} />
+                <h3>Edit Pre-order Courses for Booking #{b.booking_id}</h3>
+                <div style={{ background: 'var(--paper-dim)', padding: 12, marginBottom: 16, borderLeft: '3px solid var(--mustard)' }}>
+                  <p style={{ margin: 0, fontSize: '0.88rem', color: '#6b6558' }}>
+                    <strong>Note:</strong> You can only edit the pre-order courses. To change the date, time, party size, or special request, please cancel this booking and create a new one.
+                  </p>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12, marginTop: 12 }}>
+                    <div>
+                      <div style={{ fontSize: '0.8rem', fontWeight: 600, marginBottom: 4 }}>Date</div>
+                      <div style={{ fontSize: '0.95rem' }}>{editForm.booking_date}</div>
+                    </div>
+                    <div>
+                      <div style={{ fontSize: '0.8rem', fontWeight: 600, marginBottom: 4 }}>Time</div>
+                      <div style={{ fontSize: '0.95rem' }}>{editForm.booking_time}</div>
+                    </div>
+                    <div>
+                      <div style={{ fontSize: '0.8rem', fontWeight: 600, marginBottom: 4 }}>Party Size</div>
+                      <div style={{ fontSize: '0.95rem' }}>{editForm.party_size} people</div>
+                    </div>
                   </div>
-                  <div className="field" style={{ margin: 0 }}>
-                    <label>Time</label>
-                    <select value={editForm.booking_time} onChange={e => setEditForm(f => ({ ...f, booking_time: e.target.value }))}>
-                      {['10:00','10:30','11:00','11:30','12:00','12:30','13:00','13:30','14:00','14:30','15:00','15:30','16:00','16:30','17:00','17:30','18:00','18:30','19:00','19:30','20:00','20:30','21:00','21:30','22:00'].map(t => (
-                        <option key={t} value={t}>{t}</option>
-                      ))}
-                    </select>
-                  </div>
-                  <div className="field" style={{ margin: 0 }}>
-                    <label>Party size</label>
-                    <input type="number" min={1} max={12} value={editForm.party_size} onChange={e => setEditForm(f => ({ ...f, party_size: Number(e.target.value), table_id: null }))} />
-                  </div>
-                </div>
-                <div className="field">
-                  <label>Special request</label>
-                  <textarea value={editForm.special_request} onChange={e => setEditForm(f => ({ ...f, special_request: e.target.value }))} rows={2} />
+                  {editForm.special_request && (
+                    <div style={{ marginTop: 12 }}>
+                      <div style={{ fontSize: '0.8rem', fontWeight: 600, marginBottom: 4 }}>Special Request</div>
+                      <div style={{ fontSize: '0.95rem' }}>{editForm.special_request}</div>
+                    </div>
+                  )}
                 </div>
 
                 {/* Pre-order course selection */}
-                <div style={{ borderTop: '2px solid var(--mustard)', paddingTop: 16, marginTop: 12 }}>
+                <div style={{ borderTop: '2px solid var(--mustard)', paddingTop: 16, marginTop: 0 }}>
                   <h3 style={{ marginBottom: 4 }}>Edit Pre-order Courses</h3>
                   <p style={{ color: '#6b6558', fontSize: '0.85rem', marginBottom: 12 }}>
-                    Add or remove courses for your reservation.
+                    Add or remove courses for your booking.
                   </p>
 
                   <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 12 }}>
@@ -228,16 +295,56 @@ export default function BookingManagement() {
                     ))}
                   </div>
 
-                  <div style={{ maxHeight: 200, overflowY: 'auto', border: '1px solid var(--line)', padding: 10, marginBottom: 12 }}>
-                    {filteredMenu.map(item => (
-                      <div className="ticket-row" key={item.item_id} style={{ padding: '6px 0' }}>
-                        <span className="name" style={{ fontSize: '0.9rem' }}>{item.name}</span>
-                        <span className="leader" />
-                        <span className="price">${Number(item.price).toFixed(0)}</span>
-                        <button type="button" className="btn" style={{ padding: '2px 8px', fontSize: '0.75rem' }} onClick={() => addPreOrderItem(item)}>+</button>
-                      </div>
+                  <div className="booking-preorder-grid">
+                    {preOrderPagination.pageItems.map(item => (
+                      <article className="menu-food-card" key={item.item_id}>
+                        <div className="menu-food-photo">
+                          <div className="menu-food-photo-placeholder" aria-hidden="true">
+                            <span>{item.category}</span>
+                            <small>Food photo</small>
+                          </div>
+                          {item.image_url && (
+                            <img
+                              src={item.image_url}
+                              alt={item.name}
+                              onError={event => { event.currentTarget.style.display = 'none'; }}
+                            />
+                          )}
+                          <span className="menu-food-status is-available">On sale</span>
+                        </div>
+                        <div className="menu-food-content">
+                          <div className="menu-food-heading">
+                            <h2>{item.name}</h2>
+                            <span className="menu-food-type">{item.category}</span>
+                          </div>
+                          <p className="menu-food-description">
+                            {item.description || 'A thoughtfully prepared Ember & Oak favorite.'}
+                          </p>
+                          <div className="menu-food-footer">
+                            <span className="menu-food-price">${Number(item.price).toFixed(2)}</span>
+                            <button
+                              type="button"
+                              className="menu-food-add"
+                              onClick={() => addPreOrderItem(item)}
+                              aria-label={`Add ${item.name} to pre-order`}
+                              title={`Add ${item.name} to pre-order`}
+                            >
+                              <span aria-hidden="true">+</span>
+                            </button>
+                          </div>
+                        </div>
+                      </article>
                     ))}
+                    {filteredMenu.length === 0 && (
+                      <p className="menu-empty-state">No available dishes in this category.</p>
+                    )}
                   </div>
+                  <Pagination
+                    page={preOrderPagination.page}
+                    pageCount={preOrderPagination.pageCount}
+                    totalItems={filteredMenu.length}
+                    onPageChange={preOrderPagination.setPage}
+                  />
 
                   {preOrder.length > 0 && (
                     <div style={{ background: 'var(--paper-dim)', padding: 12, marginBottom: 12 }}>
@@ -264,8 +371,16 @@ export default function BookingManagement() {
               </div>
             )}
           </div>
-        ))
+        ))}</div>
       )}
+          <Pagination
+            page={bookingsPagination.page}
+            pageCount={bookingsPagination.pageCount}
+            totalItems={filteredBookings.length}
+            onPageChange={bookingsPagination.setPage}
+          />
+        </section>
+      </div>
     </div>
   );
 }

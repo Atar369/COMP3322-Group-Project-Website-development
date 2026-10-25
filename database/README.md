@@ -1,20 +1,27 @@
 # COMP3322 restaurant database
 
-MySQL 8.0.16+ schema for one fictional restaurant. It contains seven tables and sample data. It does not implement customer preference analysis or the web frontend.
+MySQL 8.0.16+ schema for one fictional restaurant. It contains eight tables and sample data. It does not implement customer preference analysis or the web frontend.
 
 ## Run the SQL
 
-Run these files in order against a MySQL account allowed to create a database:
+Create the database, then run these files in order:
 
 ```sh
-mysql -u YOUR_USER -p < database/schema.sql
-mysql -u YOUR_USER -p < database/seed.sql
-mysql -u YOUR_USER -p < database/queries.sql
+mysql -u YOUR_USER -p -e "CREATE DATABASE restaurant_app"
+mysql -u YOUR_USER -p restaurant_app < database/init/schema.sql
+mysql -u YOUR_USER -p restaurant_app < database/init/seed.sql
+mysql -u YOUR_USER -p restaurant_app < database/queries.sql
 ```
 
-`schema.sql` creates database; `seed.sql` assumes its tables are empty and is intended to run once. The four sample `password_hash` values are clearly marked **dummy placeholders** and cannot be used to log in. Before testing authentication, replace them with hashes made by the backend's password library. Never store or log plaintext passwords.
+`database/init/schema.sql` creates the tables, and `database/init/seed.sql` loads the demo data on first startup. Demo customer and manager accounts use the password `password`; the seed stores its bcrypt hash. For example, use `alice@example.com` as a customer and `manager@example.com` as a manager. The seed includes a seated customer with unpaid orders so the Orders & Cart page can be tested immediately. These shared credentials are for local coursework/demo use only; replace or remove them before public deployment.
 
-The sample orders use the date on which the seed runs so the “today” queries show results. Prices are example amounts in one currency chosen by the group; the schema does not store a currency code.
+For an existing database created before user phone numbers became optional, apply `database/migrations/20261025_nullable_user_phone.sql` before creating accounts without a phone number.
+
+Existing databases must also apply `database/migrations/20261025_add_manager_id.sql` before the first-manager bootstrap or manager registration. Manager IDs are unique, required for manager accounts, and are not used for login; managers continue to sign in by email.
+
+The sample orders use the date on which the seed runs so the “today” queries show results. Menu prices and sample order amounts are in HKD; the schema does not store a currency code.
+
+Menu prices are shown in HKD. To refresh an existing database that was initialized with placeholder dishes, apply `database/migrations/20261025_refresh_menu.sql`. It updates the placeholder menu rows in place to preserve their item IDs and adds the two new dishes. Docker only runs files in `database/init` when creating a fresh database volume; existing volumes need the migration applied explicitly.
 
 ## Tables and keys
 
