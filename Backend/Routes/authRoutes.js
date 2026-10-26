@@ -9,6 +9,9 @@ router.post('/register', authController.register);
 // POST /api/auth/login
 router.post('/login', authController.login);
 
+// POST /api/auth/create-manager
+router.post('/create-manager', verifyToken, requireRole('manager'), authController.createManager);
+
 // GET /api/auth/me (protected)
 router.get('/me', verifyToken, authController.me);
 
