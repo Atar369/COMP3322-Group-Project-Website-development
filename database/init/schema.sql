@@ -1,9 +1,8 @@
--- MySQL 8.0.16+ (CHECK constraints are enforced from 8.0.16).
--- CREATE DATABASE IF NOT EXISTS comp3322_restaurant
---   CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci;
--- USE comp3322_restaurant;
+-- The Kitchen Ledger - Beta B database schema
+-- MySQL 8.0.16+
+-- Run on a new, empty restaurant_app database.
 
-CREATE TABLE IF NOT EXISTS users (
+CREATE TABLE users (
   user_id INT UNSIGNED NOT NULL AUTO_INCREMENT,
   name VARCHAR(100) NOT NULL,
   manager_id VARCHAR(50) NULL,
@@ -20,9 +19,9 @@ CREATE TABLE IF NOT EXISTS users (
   UNIQUE KEY uq_users_email (email),
   UNIQUE KEY uq_users_phone (phone),
   CONSTRAINT chk_users_role CHECK (role IN ('customer', 'manager'))
-) ENGINE=InnoDB;
+);
 
-CREATE TABLE IF NOT EXISTS menu_items (
+CREATE TABLE menu_items (
   item_id INT UNSIGNED NOT NULL AUTO_INCREMENT,
   name VARCHAR(120) NOT NULL,
   description TEXT NULL,
@@ -36,9 +35,9 @@ CREATE TABLE IF NOT EXISTS menu_items (
   KEY idx_menu_available_category (is_available, category),
   CONSTRAINT chk_menu_price CHECK (price >= 0),
   CONSTRAINT chk_menu_available CHECK (is_available IN (0, 1))
-) ENGINE=InnoDB;
+);
 
-CREATE TABLE IF NOT EXISTS restaurant_tables (
+CREATE TABLE restaurant_tables (
   table_id INT UNSIGNED NOT NULL AUTO_INCREMENT,
   table_number INT UNSIGNED NOT NULL,
   capacity INT UNSIGNED NOT NULL,
@@ -48,9 +47,9 @@ CREATE TABLE IF NOT EXISTS restaurant_tables (
   CONSTRAINT chk_tables_number CHECK (table_number > 0),
   CONSTRAINT chk_tables_capacity CHECK (capacity > 0),
   CONSTRAINT chk_tables_status CHECK (status IN ('available', 'unavailable'))
-) ENGINE=InnoDB;
+);
 
-CREATE TABLE IF NOT EXISTS orders (
+CREATE TABLE orders (
   order_id INT UNSIGNED NOT NULL AUTO_INCREMENT,
   user_id INT UNSIGNED NOT NULL,
   booking_id INT UNSIGNED NULL,
@@ -59,13 +58,15 @@ CREATE TABLE IF NOT EXISTS orders (
   order_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   status VARCHAR(12) NOT NULL DEFAULT 'pending',
   total_amount DECIMAL(10,2) NOT NULL DEFAULT 0.00,
-  payment_status VARCHAR(8) NOT NULL DEFAULT 'unpaid',
+  payment_status VARCHAR(20) NOT NULL DEFAULT 'unpaid',
   created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (order_id),
   KEY idx_orders_user_time (user_id, order_time),
   KEY idx_orders_time (order_time),
   KEY idx_orders_status_time (status, order_time),
+  KEY idx_orders_booking (booking_id),
+  KEY idx_orders_queue (queue_id),
   KEY idx_orders_table_payment (table_id, payment_status),
   CONSTRAINT fk_orders_user FOREIGN KEY (user_id) REFERENCES users (user_id)
     ON DELETE RESTRICT ON UPDATE RESTRICT,
@@ -73,10 +74,10 @@ CREATE TABLE IF NOT EXISTS orders (
     ON DELETE SET NULL ON UPDATE RESTRICT,
   CONSTRAINT chk_orders_status CHECK (status IN ('pending', 'preparing', 'ready', 'completed', 'cancelled')),
   CONSTRAINT chk_orders_total CHECK (total_amount >= 0),
-  CONSTRAINT chk_orders_payment CHECK (payment_status IN ('unpaid', 'paid', 'refunded'))
-) ENGINE=InnoDB;
+  CONSTRAINT chk_orders_payment CHECK (payment_status IN ('unpaid', 'pending_payment', 'paid', 'refunded'))
+);
 
-CREATE TABLE IF NOT EXISTS order_items (
+CREATE TABLE order_items (
   order_item_id INT UNSIGNED NOT NULL AUTO_INCREMENT,
   order_id INT UNSIGNED NOT NULL,
   item_id INT UNSIGNED NOT NULL,
@@ -92,9 +93,9 @@ CREATE TABLE IF NOT EXISTS order_items (
     ON DELETE RESTRICT ON UPDATE RESTRICT,
   CONSTRAINT chk_order_items_quantity CHECK (quantity > 0),
   CONSTRAINT chk_order_items_price CHECK (unit_price >= 0)
-) ENGINE=InnoDB;
+);
 
-CREATE TABLE IF NOT EXISTS bookings (
+CREATE TABLE bookings (
   booking_id INT UNSIGNED NOT NULL AUTO_INCREMENT,
   user_id INT UNSIGNED NOT NULL,
   table_id INT UNSIGNED NOT NULL,
@@ -119,9 +120,9 @@ CREATE TABLE IF NOT EXISTS bookings (
     ON DELETE RESTRICT ON UPDATE RESTRICT,
   CONSTRAINT chk_bookings_party CHECK (party_size > 0),
   CONSTRAINT chk_bookings_status CHECK (status IN ('booked', 'cancelled', 'no_show', 'serving', 'finished', 'paid'))
-) ENGINE=InnoDB;
+);
 
-CREATE TABLE IF NOT EXISTS queue_entries (
+CREATE TABLE queue_entries (
   queue_id INT UNSIGNED NOT NULL AUTO_INCREMENT,
   user_id INT UNSIGNED NOT NULL,
   party_size INT UNSIGNED NOT NULL,
@@ -148,20 +149,21 @@ CREATE TABLE IF NOT EXISTS queue_entries (
     ON DELETE SET NULL ON UPDATE RESTRICT,
   CONSTRAINT chk_queue_party CHECK (party_size > 0),
   CONSTRAINT chk_queue_status CHECK (status IN ('queued', 'called', 'serving', 'missed', 'finished', 'paid', 'cancelled'))
-) ENGINE=InnoDB;
+);
 
-CREATE TABLE IF NOT EXISTS queue_auto_call_settings (
+CREATE TABLE queue_auto_call_settings (
   group_code CHAR(1) NOT NULL,
   enabled BOOLEAN NOT NULL DEFAULT FALSE,
   updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (group_code),
   CONSTRAINT chk_queue_auto_call_group CHECK (group_code IN ('A', 'B', 'C'))
-) ENGINE=InnoDB;
+);
 
 INSERT IGNORE INTO queue_auto_call_settings (group_code, enabled)
 VALUES ('A', FALSE), ('B', FALSE), ('C', FALSE);
 
-CREATE TABLE IF NOT EXISTS password_resets (
+-- Matches the current Backend password-reset table; the reset flow needs a security fix.
+CREATE TABLE password_resets (
   reset_id INT UNSIGNED NOT NULL AUTO_INCREMENT,
   user_id INT UNSIGNED NOT NULL,
   new_password VARCHAR(20) NOT NULL,
@@ -170,4 +172,4 @@ CREATE TABLE IF NOT EXISTS password_resets (
   KEY idx_reset_user (user_id),
   CONSTRAINT fk_reset_user FOREIGN KEY (user_id) REFERENCES users (user_id)
     ON DELETE CASCADE ON UPDATE RESTRICT
-) ENGINE=InnoDB;
+);
