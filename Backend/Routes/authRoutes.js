@@ -24,7 +24,4 @@ router.post('/forgot-password', authController.forgotPassword);
 // POST /api/auth/reset-password (step 2: reset with token)
 router.post('/reset-password', authController.resetPassword);
 
-// POST /api/auth/create-manager (protected, manager only)
-router.post('/create-manager', verifyToken, requireRole('manager'), authController.createManager);
-
 module.exports = router;

@@ -4,7 +4,8 @@ const { randomUUID } = require('crypto');
 const db = require('../db');
 
 const MENU_IMAGE_DIR = process.env.MENU_IMAGE_DIR
-  || path.join(__dirname, '..', '..', 'Frontend', 'public', 'menu-images');
+  || path.join(__dirname, '..', 'public', 'uploads', 'menu-images');
+
 const ALLOWED_CATEGORIES = new Set(['Starter', 'Main', 'Side', 'Dessert', 'Beverage']);
 const PNG_SIGNATURE = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
 
@@ -70,15 +71,17 @@ async function create(request, response) {
         name: request.body.name.trim(),
         description: request.body.description.trim(),
         category: request.body.category,
-        price: Number(request.body.price).toFixed(2),
+        price: Number(request.body.price),
         image_url: savedImage.url,
         is_available: 1,
       },
     });
   } catch (error) {
-    if (savedImage) await fs.unlink(path.join(MENU_IMAGE_DIR, savedImage.filename)).catch(cleanupError => {
-      console.error('Failed to remove unreferenced menu image:', cleanupError);
-    });
+    if (savedImage) {
+      await fs.unlink(path.join(MENU_IMAGE_DIR, savedImage.filename)).catch(cleanupError => {
+        console.error('Failed to remove unreferenced menu image:', cleanupError);
+      });
+    }
     if (error.status) return response.status(error.status).json({ error: error.message });
     console.error('Menu item creation failed:', error);
     return response.status(500).json({ error: 'Could not add the menu item. Please try again.' });
@@ -114,13 +117,18 @@ async function update(request, response) {
       `UPDATE menu_items SET ${updates.join(', ')} WHERE item_id = ?`,
       values
     );
+
+    if (result.affectedRows === 0) {
+      return response.status(404).json({ error: 'Menu item not found.' });
+    }
+
     const [rows] = await db.query(
       `SELECT item_id, name, description, category, price, image_url, is_available
        FROM menu_items WHERE item_id = ?`,
       [id]
     );
-    if (rows.length === 0) return response.status(404).json({ error: 'Menu item not found.' });
     return response.json({ item: rows[0] });
+
   } catch (error) {
     console.error('Menu item update failed:', error);
     return response.status(500).json({ error: 'Could not update the menu item. Please try again.' });

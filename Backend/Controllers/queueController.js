@@ -55,40 +55,48 @@ async function managerHistory(req, res) {
 
 // POST /api/queue — customer joins queue
 async function join(req, res) {
-  const { user_id, party_size } = req.body;
-  if (!user_id || !party_size) return res.status(400).json({ error: 'user_id and party_size required.' });
+  const user_id = req.user.user_id; 
+  const { party_size } = req.body;
+
+  if (!party_size) return res.status(400).json({ error: 'party_size required.' });
 
   const prefix = getGroupPrefix(party_size);
   const today = new Date().toISOString().slice(0, 10);
+  const conn = await db.getConnection();
 
   try {
+    await conn.beginTransaction();
+
     // Check if customer already has an active queue entry today
-    const [existing] = await db.query(
+    const [existing] = await conn.query(
       `SELECT queue_id FROM queue_entries WHERE user_id = ? AND queue_date = ? AND status IN ('queued','called','serving')`,
       [user_id, today]
     );
     if (existing.length > 0) {
+      await conn.rollback();
       return res.status(409).json({ error: 'You already have an active queue number today.' });
     }
 
     // Check if customer has missed once (rejoin limit: 1)
-    const [missedCheck] = await db.query(
+    const [missedCheck] = await conn.query(
       `SELECT COUNT(*) as miss_count FROM queue_entries WHERE user_id = ? AND queue_date = ? AND status = 'missed'`,
       [user_id, today]
     );
     if (missedCheck[0].miss_count >= 1) {
+      await conn.rollback();
       return res.status(403).json({
         error: 'You have already missed your turn once. Please see the manager to rejoin.',
       });
     }
 
-    // Get the last queue number for this prefix today; daily reset + wrap at 999 back to 001
-    const [lastRows] = await db.query(
+    // Use FOR UPDATE to prevent race conditions when generating queue numbers
+    const [lastRows] = await conn.query(
       `SELECT queue_number FROM queue_entries
        WHERE queue_date = ? AND queue_number LIKE ?
-       ORDER BY queue_number DESC LIMIT 1`,
+       ORDER BY queue_number DESC LIMIT 1 FOR UPDATE`,
       [today, `${prefix}%`]
     );
+    
     let nextNum = 1;
     if (lastRows.length > 0) {
       const lastNum = parseInt(lastRows[0].queue_number.slice(1), 10);
@@ -96,14 +104,19 @@ async function join(req, res) {
     }
     const queue_number = `${prefix}${String(nextNum).padStart(3, '0')}`;
 
-    const [result] = await db.query(
+    const [result] = await conn.query(
       `INSERT INTO queue_entries (user_id, party_size, queue_number, queue_date, status, rejoin_count) VALUES (?, ?, ?, ?, 'queued', 0)`,
       [user_id, party_size, queue_number, today]
     );
+    
+    await conn.commit();
     return res.status(201).json({ queueId: result.insertId, queueNumber: queue_number });
   } catch (err) {
+    await conn.rollback();
     console.error('join queue error:', err);
     return res.status(500).json({ error: 'Please try again later.' });
+  } finally {
+    conn.release();
   }
 }
 
@@ -130,50 +143,41 @@ async function listByUser(req, res) {
 }
 
 // PATCH /api/queue/:id/call — manager calls a queue entry
-// Auto-mark previously called entries as 'missed' if they are still in 'called' state
 async function call(req, res) {
   if (isLastOrderCutoffReached()) {
     return res.status(409).json({ error: 'Queue calling is closed for the day after 21:00.' });
   }
   const { id } = req.params;
   const conn = await db.getConnection();
+  
   try {
     await conn.beginTransaction();
-    if (isLastOrderCutoffReached()) {
-      await conn.rollback();
-      return res.status(409).json({ error: 'Queue calling is closed for the day after 21:00.' });
-    }
+    
     const [entry] = await conn.query(
       `SELECT queue_id, queue_date, party_size FROM queue_entries WHERE queue_id = ? AND status = 'queued' FOR UPDATE`,
       [id]
     );
     if (entry.length === 0) {
       await conn.rollback();
-      return res.status(400).json({ error: 'Queue entry not found.' });
-    }
-    if (isLastOrderCutoffReached()) {
-      await conn.rollback();
-      return res.status(409).json({ error: 'Queue calling is closed for the day after 21:00.' });
+      return res.status(400).json({ error: 'Queue entry not found or not in queued state.' });
     }
 
     const queueDate = entry[0].queue_date;
     const prefix = getGroupPrefix(entry[0].party_size);
 
+    // Auto-mark previous called as missed
     await conn.query(
-      `UPDATE queue_entries SET status = 'missed'
+      `UPDATE queue_entries SET status = 'missed', reserved_table_id = NULL
        WHERE queue_date = ? AND queue_number LIKE ? AND status = 'called'`,
       [queueDate, `${prefix}%`]
     );
 
-    const [result] = await conn.query(
+    // Call the new entry
+    await conn.query(
       `UPDATE queue_entries SET status = 'called', called_at = NOW() WHERE queue_id = ? AND status = 'queued'`,
       [id]
     );
 
-    if (!result.affectedRows) {
-      await conn.rollback();
-      return res.status(400).json({ error: 'Queue entry not found or not queued.' });
-    }
     await conn.commit();
     return res.json({ message: 'Queue entry called.' });
   } catch (err) {
@@ -191,10 +195,8 @@ async function checkin(req, res) {
     return res.status(409).json({ error: 'Queue seating is closed for the day after 21:00.' });
   }
   const { id } = req.params;
+  
   try {
-    if (isLastOrderCutoffReached()) {
-      return res.status(409).json({ error: 'Queue seating is closed for the day after 21:00.' });
-    }
     const [result] = await db.query(
       `UPDATE queue_entries SET status = 'serving', served_at = NOW()
        WHERE queue_id = ? AND status = 'called'`,
@@ -269,12 +271,10 @@ async function seat(req, res) {
   }
   const { id } = req.params;
   const conn = await db.getConnection();
+  
   try {
     await conn.beginTransaction();
-    if (isLastOrderCutoffReached()) {
-      await conn.rollback();
-      return res.status(409).json({ error: 'Queue seating is closed for the day after 21:00.' });
-    }
+    
     const [entries] = await conn.query(
       `SELECT queue_id, party_size, table_id, reserved_table_id
        FROM queue_entries WHERE queue_id = ? AND status = 'called' FOR UPDATE`,
@@ -289,10 +289,12 @@ async function seat(req, res) {
     let table = entry.reserved_table_id
       ? { table_id: entry.reserved_table_id }
       : await findAvailableTable(conn, entry.party_size);
+      
     if (!table) {
       await conn.rollback();
       return res.status(409).json({ error: 'No available table can seat this party right now.' });
     }
+    
     if (entry.reserved_table_id) {
       const [available] = await conn.query(
         `SELECT t.table_id FROM restaurant_tables t
@@ -317,16 +319,13 @@ async function seat(req, res) {
       }
     }
 
-    if (isLastOrderCutoffReached()) {
-      await conn.rollback();
-      return res.status(409).json({ error: 'Queue seating is closed for the day after 21:00.' });
-    }
     await conn.query(
       `UPDATE queue_entries
        SET status = 'serving', table_id = ?, reserved_table_id = NULL, served_at = NOW()
        WHERE queue_id = ? AND status = 'called'`,
       [table.table_id, entry.queue_id]
     );
+    
     await conn.commit();
     return res.json({ message: 'Queue customer seated.', table_id: table.table_id });
   } catch (err) {
@@ -342,8 +341,10 @@ async function processAutoCallGroup(group) {
   if (!isQueueGroup(group)) throw new Error(`Invalid queue group: ${group}`);
   if (isLastOrderCutoffReached()) return;
   const conn = await db.getConnection();
+  
   try {
     await conn.beginTransaction();
+    
     const [settings] = await conn.query(
       `SELECT enabled FROM queue_auto_call_settings WHERE group_code = ? FOR UPDATE`,
       [group]
@@ -364,9 +365,10 @@ async function processAutoCallGroup(group) {
        ORDER BY called_at DESC, queue_id DESC LIMIT 1 FOR UPDATE`,
       [prefix]
     );
+    
     if (called.length) {
       const elapsed = Date.now() - new Date(called[0].called_at).getTime();
-      if (elapsed < 10_000) {
+      if (elapsed < 10_000) { // 10 seconds
         await conn.commit();
         return;
       }
@@ -383,10 +385,12 @@ async function processAutoCallGroup(group) {
        ORDER BY queue_number ASC, joined_at ASC, queue_id ASC FOR UPDATE`,
       [prefix]
     );
+    
     for (const entry of waiting) {
       if (isLastOrderCutoffReached()) break;
       const table = await findAvailableTable(conn, entry.party_size);
       if (!table) continue;
+      
       await conn.query(
         `UPDATE queue_entries
          SET status = 'called', called_at = NOW(), reserved_table_id = ?
@@ -448,8 +452,10 @@ async function finish(req, res) {
 async function pay(req, res) {
   const { id } = req.params;
   const conn = await db.getConnection();
+  
   try {
     await conn.beginTransaction();
+    
     const [entries] = await conn.query(
       `SELECT queue_id FROM queue_entries WHERE queue_id = ? AND status = 'finished' FOR UPDATE`,
       [id]
@@ -458,6 +464,7 @@ async function pay(req, res) {
       await conn.rollback();
       return res.status(400).json({ error: 'Queue entry not finished.' });
     }
+    
     await conn.query(
       `UPDATE queue_entries SET status = 'paid' WHERE queue_id = ?`,
       [id]
@@ -466,6 +473,7 @@ async function pay(req, res) {
       `UPDATE orders SET payment_status = 'paid' WHERE queue_id = ? AND payment_status = 'unpaid'`,
       [id]
     );
+    
     await conn.commit();
     return res.json({ message: 'Queue entry paid.' });
   } catch (err) {
@@ -496,32 +504,42 @@ async function cancel(req, res) {
 // PATCH /api/queue/:id/reissue — manager reissues a new ticket to a missed customer
 async function reissue(req, res) {
   const { id } = req.params;
+  const conn = await db.getConnection();
+  
   try {
+    await conn.beginTransaction();
+    
     // Get the missed entry
-    const [entry] = await db.query(
-      `SELECT user_id, party_size, queue_date FROM queue_entries WHERE queue_id = ? AND status = 'missed'`,
+    const [entry] = await conn.query(
+      `SELECT user_id, party_size, queue_date FROM queue_entries WHERE queue_id = ? AND status = 'missed' FOR UPDATE`,
       [id]
     );
     if (entry.length === 0) {
+      await conn.rollback();
       return res.status(400).json({ error: 'Queue entry not found or not missed.' });
     }
 
     const { user_id, party_size, queue_date } = entry[0];
     const prefix = getGroupPrefix(party_size);
 
-    // Mark old ticket as cancelled
-    await db.query(
-      `UPDATE queue_entries SET status = 'cancelled' WHERE queue_id = ?`,
-      [id]
+    // Check if user already has an active ticket
+    const [active] = await conn.query(
+      `SELECT queue_id FROM queue_entries WHERE user_id = ? AND queue_date = ? AND status IN ('queued', 'called', 'serving')`,
+      [user_id, queue_date]
     );
+    if (active.length > 0) {
+      await conn.rollback();
+      return res.status(400).json({ error: 'Customer already has an active ticket.' });
+    }
 
-    // Get the last queue number for this prefix on the same date
-    const [lastRows] = await db.query(
+    // Get the last queue number
+    const [lastRows] = await conn.query(
       `SELECT queue_number FROM queue_entries
-       WHERE queue_date = ? AND queue_number LIKE ? AND status IN ('queued', 'called', 'serving')
-       ORDER BY queue_number DESC LIMIT 1`,
+       WHERE queue_date = ? AND queue_number LIKE ? AND status IN ('queued', 'called', 'serving', 'missed')
+       ORDER BY queue_number DESC LIMIT 1 FOR UPDATE`,
       [queue_date, `${prefix}%`]
     );
+    
     let nextNum = 1;
     if (lastRows.length > 0) {
       const lastNum = parseInt(lastRows[0].queue_number.slice(1), 10);
@@ -529,20 +547,24 @@ async function reissue(req, res) {
     }
     const new_queue_number = `${prefix}${String(nextNum).padStart(3, '0')}`;
 
-    // Create a new queue entry
-    const [result] = await db.query(
+    // Create a new queue entry. Do NOT change the old one from 'missed' (keeps audit history accurate)
+    const [result] = await conn.query(
       `INSERT INTO queue_entries (user_id, party_size, queue_number, queue_date, status, rejoin_count) VALUES (?, ?, ?, ?, 'queued', ?)`,
       [user_id, party_size, new_queue_number, queue_date, 1]
     );
 
+    await conn.commit();
     return res.status(201).json({
       message: 'New queue ticket reissued',
       queueId: result.insertId,
       queueNumber: new_queue_number,
     });
   } catch (err) {
+    await conn.rollback();
     console.error('reissue queue error:', err);
     return res.status(500).json({ error: 'Please try again later.' });
+  } finally {
+    conn.release();
   }
 }
 
@@ -551,8 +573,10 @@ async function customerRejoin(req, res) {
   const { id } = req.params;
   const userId = req.user.user_id;
   const conn = await db.getConnection();
+  
   try {
     await conn.beginTransaction();
+    
     const [missedRows] = await conn.query(
       `SELECT queue_id, user_id, party_size, queue_number, queue_date, rejoin_count
        FROM queue_entries
@@ -572,6 +596,8 @@ async function customerRejoin(req, res) {
     }
 
     const prefix = getGroupPrefix(missed.party_size);
+    
+    // Get current called number
     const [calledRows] = await conn.query(
       `SELECT queue_number FROM queue_entries
        WHERE queue_date = ? AND queue_number LIKE ? AND status = 'called'
@@ -585,11 +611,13 @@ async function customerRejoin(req, res) {
 
     const missedNumber = Number(missed.queue_number.slice(1));
     const currentNumber = Number(calledRows[0].queue_number.slice(1));
+    
     if (missedNumber > currentNumber || missedNumber < currentNumber - 35) {
       await conn.rollback();
       return res.status(409).json({ error: 'You can rejoin when your missed number is no more than 35 numbers behind the current call.' });
     }
 
+    // Check if user already has an active ticket
     const [activeRows] = await conn.query(
       `SELECT queue_id FROM queue_entries
        WHERE user_id = ? AND queue_date = ? AND status IN ('queued', 'called', 'serving')
@@ -601,32 +629,41 @@ async function customerRejoin(req, res) {
       return res.status(409).json({ error: 'You already have an active queue ticket.' });
     }
 
+    // Calculate target number (current + 15)
     const [assignedRows] = await conn.query(
       `SELECT queue_number FROM queue_entries
        WHERE queue_date = ? AND queue_number LIKE ?`,
       [missed.queue_date, `${prefix}%`]
     );
     const assigned = new Set(assignedRows.map(row => Number(row.queue_number.slice(1))));
-    const targetNumber = currentNumber + 15;
+    
+    let targetNumber = currentNumber + 15;
     if (targetNumber > 999) {
       await conn.rollback();
       return res.status(409).json({ error: 'The queue number 15 after the current call is outside today’s number range.' });
     }
-    if (assigned.has(targetNumber)) {
-      await conn.rollback();
-      return res.status(409).json({ error: 'The queue number 15 after the current call is already assigned. Please try again after the next call.' });
+    
+    // Find the next available number if the exact +15 is taken
+    while (assigned.has(targetNumber)) {
+      targetNumber++;
+      if (targetNumber > 999) {
+        targetNumber = 1;
+      }
     }
 
     const queueNumber = `${prefix}${String(targetNumber).padStart(3, '0')}`;
+    
     await conn.query(
       `UPDATE queue_entries SET rejoin_count = 1 WHERE queue_id = ?`,
       [missed.queue_id]
     );
+    
     const [result] = await conn.query(
       `INSERT INTO queue_entries (user_id, party_size, queue_number, queue_date, status, rejoin_count)
        VALUES (?, ?, ?, ?, 'queued', 1)`,
       [userId, missed.party_size, queueNumber, missed.queue_date]
     );
+    
     await conn.commit();
     return res.status(201).json({
       message: 'You have rejoined the queue.',

@@ -58,7 +58,7 @@ export default function Queue() {
       return;
     }
     try {
-      await api.post('/queue', { user_id: user.user_id, party_size: partySize });
+      await api.post('/queue', { party_size: partySize });
       loadAll();
     } catch (err) {
       setJoinError(err.response?.data?.error || 'Could not join queue.');

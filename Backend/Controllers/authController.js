@@ -6,7 +6,7 @@ const pool = require('../db');
 // POST /api/auth/register
 exports.register = async (req, res) => {
   try {
-    const { name, email, phone, password, role } = req.body;
+    const { name, email, phone, password } = req.body;
 
     // Validation
     if (!name || !email || !password || !phone) {
@@ -21,21 +21,23 @@ exports.register = async (req, res) => {
       return res.status(400).json({ error: 'Invalid email format' });
     }
 
+    const normalizedEmail = email.trim().toLowerCase();
+    const normalizedPhone = phone.trim();
+
     const [existing] = await pool.query(
-      'SELECT user_id FROM users WHERE email = ?',
-      [email]
+      'SELECT user_id FROM users WHERE email = ? OR phone = ?',
+      [normalizedEmail, normalizedPhone]
     );
     if (existing.length > 0) {
-      return res.status(409).json({ error: 'Email already registered' });
+      return res.status(409).json({ error: 'Email or phone number already registered' });
     }
 
     const password_hash = await bcrypt.hash(password, 10);
 
-    // Always assign 'customer' — never trust client-supplied role
-    const userRole = 'customer';
+    // Insert customer (role = 'customer', manager_id = NULL)
     const [result] = await pool.query(
       'INSERT INTO users (name, email, phone, password_hash, role) VALUES (?, ?, ?, ?, ?)',
-      [name, email, phone?.trim() || null, password_hash, userRole]
+      [name.trim(), normalizedEmail, normalizedPhone, password_hash, 'customer']
     );
 
     const token = jwt.sign(
@@ -47,10 +49,13 @@ exports.register = async (req, res) => {
     res.status(201).json({
       message: 'User registered successfully',
       token,
-      user: { user_id: result.insertId, name, email, role: userRole },
+      user: { user_id: result.insertId, name: name.trim(), email: normalizedEmail, phone: normalizedPhone, role: 'customer' },
     });
   } catch (err) {
     console.error('Register error:', err);
+    if (err.code === 'ER_DUP_ENTRY') {
+        return res.status(409).json({ error: 'Email or phone number already exists' });
+    }
     res.status(500).json({ error: 'Internal server error' });
   }
 };
@@ -64,20 +69,62 @@ exports.login = async (req, res) => {
       return res.status(400).json({ error: 'Email and password are required' });
     }
 
+    // 1. Fetch user including lockout fields
     const [rows] = await pool.query(
-      'SELECT user_id, name, email, phone, password_hash, role FROM users WHERE email = ?',
-      [email]
+      'SELECT user_id, name, email, phone, role, password_hash, failed_attempts, lock_until FROM users WHERE email = ?',
+      [email.trim().toLowerCase()]
     );
+    
     if (rows.length === 0) {
       return res.status(401).json({ error: 'Invalid email or password' });
     }
 
     const user = rows[0];
-    const match = await bcrypt.compare(password, user.password_hash);
-    if (!match) {
-      return res.status(401).json({ error: 'Invalid email or password' });
+
+    // 2. Check if the account is currently locked
+    if (user.lock_until && new Date(user.lock_until) > new Date()) {
+      const minutesLeft = Math.ceil((new Date(user.lock_until) - new Date()) / 60000);
+      return res.status(403).json({ 
+        error: `Account is locked due to too many failed attempts. Try again in ${minutesLeft} minutes.` 
+      });
     }
 
+    // 3. Compare the password
+    const match = await bcrypt.compare(password, user.password_hash);
+
+    if (!match) {
+      // 4. If password is wrong, increment attempts
+      const newAttempts = user.failed_attempts + 1;
+      let lockUntil = null;
+
+      // If they reach 5 attempts, lock for 15 minutes
+      if (newAttempts >= 5) {
+        lockUntil = new Date(Date.now() + 15 * 60 * 1000);
+      }
+
+      await pool.query(
+        'UPDATE users SET failed_attempts = ?, lock_until = ? WHERE user_id = ?',
+        [newAttempts, lockUntil, user.user_id]
+      );
+
+      if (newAttempts >= 5) {
+        return res.status(403).json({ 
+          error: 'Too many failed attempts. Your account is locked for 15 minutes.' 
+        });
+      }
+      
+      return res.status(401).json({ 
+        error: `Invalid email or password. You have ${5 - newAttempts} attempts remaining.` 
+      });
+    }
+
+    // 5. If password is correct, reset the attempts and lock
+    await pool.query(
+      'UPDATE users SET failed_attempts = 0, lock_until = NULL WHERE user_id = ?',
+      [user.user_id]
+    );
+
+    // 6. Generate JWT
     const token = jwt.sign(
       { user_id: user.user_id, email: user.email, role: user.role },
       process.env.JWT_SECRET,
@@ -87,13 +134,7 @@ exports.login = async (req, res) => {
     res.status(200).json({
       message: 'Login successful',
       token,
-      user: {
-        user_id: user.user_id,
-        name: user.name,
-        email: user.email,
-        phone: user.phone,
-        role: user.role,
-      },
+      user: {user_id: user.user_id, name: user.name, email: user.email, phone: user.phone, role: user.role, manager_id: user.manager_id },
     });
   } catch (err) {
     console.error('Login error:', err);
@@ -103,27 +144,53 @@ exports.login = async (req, res) => {
 
 // POST /api/auth/create-manager
 exports.createManager = async (req, res) => {
-  const { name, email, phone, password } = req.body;
-  
-  // Validation
-  if (!name || !email || !password || !phone) {
-    return res.status(400).json({ error: 'Name, email, phone, and password are required' });
-  }
-  if (password.length < 6) {
-    return res.status(400).json({ error: 'Password must be at least 6 characters' });
-  }
+  try {
+    const { name, manager_id, email, phone, password } = req.body;
+
+    const normName = name ? name.trim() : '';
+    const normManagerId = manager_id ? manager_id.trim() : '';
+    const normEmail = email ? email.trim().toLowerCase() : '';
+    const normPhone = phone ? phone.trim() : '';
+
+    // Validation
+    if (!normName || !normManagerId || !normEmail || !password || !normPhone) {
+      return res.status(400).json({ error: 'Name, manager ID, email, phone, and password are required' });
+    }
+    if (password.length < 6) {
+      return res.status(400).json({ error: 'Password must be at least 6 characters' });
+    }
     
-  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-  if (!emailRegex.test(email)) {
-    return res.status(400).json({ error: 'Invalid email format' });
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(normEmail)) {
+      return res.status(400).json({ error: 'Invalid email format' });
+    }
+
+    const [existing] = await pool.query(
+      'SELECT user_id FROM users WHERE email = ? OR manager_id = ? OR phone = ?',
+      [normEmail, normManagerId, normPhone]
+    );
+    if (existing.length > 0) {
+      return res.status(409).json({ error: 'Email, Manager ID, or phone number already exists' });
+    }
+
+    const password_hash = await bcrypt.hash(password, 10);
+    
+    const [result] = await pool.query(
+      'INSERT INTO users (name, manager_id, email, phone, password_hash, role) VALUES (?, ?, ?, ?, ?, ?)',
+      [normName, normManagerId, normEmail, normPhone, password_hash, 'manager']
+    );
+
+    res.status(201).json({
+      message: 'Manager created successfully',
+      user: { user_id: result.insertId, name: normName, manager_id: normManagerId, email: normEmail, phone: normPhone, role: 'manager' },
+    });
+  } catch (err) {
+    console.error('Create manager error:', err);
+    if (err.code === 'ER_DUP_ENTRY') {
+      return res.status(409).json({ error: 'Email, Manager ID, or phone number already exists' });
+    }
+    res.status(500).json({ error: 'Internal server error' });
   }
-  
-  const password_hash = await bcrypt.hash(password, 10);
-  await pool.query(
-    'INSERT INTO users (name, email, phone, password_hash, role) VALUES (?, ?, ?, ?, ?)',
-    [name, email, phone, password_hash, 'manager']
-  );
-  res.status(201).json({ message: 'Manager created' });
 };
 
 // GET /api/auth/me (protected)
@@ -186,12 +253,12 @@ exports.forgotPassword = async (req, res) => {
     }
 
     const [rows] = await pool.query(
-      'SELECT user_id FROM users WHERE LOWER(email) = LOWER(?)',
-      [email.trim()]
+      'SELECT user_id FROM users WHERE email = ?',
+      [email.trim().toLowerCase()]
     );
 
     if (rows.length === 0) {
-      return res.status(200).json({ message: 'If an account exists with that email, a reset link has been sent.' });
+      return res.status(200).json({ message: 'If an account exists, a reset link has been sent.' });
     }
 
     const resetToken = crypto.randomBytes(32).toString('hex');
@@ -205,11 +272,13 @@ exports.forgotPassword = async (req, res) => {
     const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
     const resetLink = `${frontendUrl}/reset-password?token=${resetToken}`;
 
-    console.log(`Reset link: ${resetLink}`);
+    console.log(`\n================================`);
+    console.log(`PASSWORD RESET LINK: ${resetLink}`);
+    console.log(`================================\n`);
 
     res.status(200).json({
       message: 'Password reset link has been sent to your email.',
-      resetToken,
+      resetToken
     });
   } catch (err) {
     console.error('Forgot password error:', err);
@@ -226,7 +295,7 @@ exports.resetPassword = async (req, res) => {
       return res.status(400).json({ error: 'Token and new password are required' });
     }
     if (newPassword.length < 6) {
-      return res.status(400).json({ error: 'New password must be at least 6 characters' });
+      return res.status(400).json({ error: 'Password must be at least 6 characters' });
     }
 
     const [rows] = await pool.query(
@@ -247,99 +316,6 @@ exports.resetPassword = async (req, res) => {
     res.status(200).json({ message: 'Password has been reset successfully.' });
   } catch (err) {
     console.error('Reset password error:', err);
-    res.status(500).json({ error: 'Failed to reset password. Please try again later.' });
-  }
-};
-
-// POST /api/auth/create-manager (protected, manager only)
-exports.createManager = async (req, res) => {
-  try {
-    const { name, manager_id, email, password, phone } = req.body;
-
-    const normalizedName = typeof name === 'string' ? name.trim() : '';
-    const normalizedManagerId = typeof manager_id === 'string' ? manager_id.trim() : '';
-    const normalizedEmail = typeof email === 'string' ? email.trim().toLowerCase() : '';
-    const normalizedPhone = typeof phone === 'string' ? phone.trim() : '';
-
-    if (!normalizedName || !normalizedManagerId || !normalizedEmail || !password || !normalizedPhone) {
-      return res.status(400).json({ error: 'Name, manager ID, email, password, and phone number are required' });
-    }
-    if (normalizedName.length > 100 || normalizedManagerId.length > 50 || normalizedEmail.length > 255 || normalizedPhone.length > 30) {
-      return res.status(400).json({ error: 'One or more fields exceed the maximum allowed length' });
-    }
-    if (!normalizedEmail.includes('@')) {
-      return res.status(400).json({ error: 'Invalid email format' });
-    }
-    if (password.length < 6) {
-      return res.status(400).json({ error: 'Password must be at least 6 characters' });
-    }
-
-    const [existing] = await pool.query(
-      'SELECT user_id FROM users WHERE email = ? OR manager_id = ? OR phone = ?',
-      [normalizedEmail, normalizedManagerId, normalizedPhone]
-    );
-    if (existing.length > 0) {
-      return res.status(409).json({ error: 'Email, manager ID, or phone number already exists' });
-    }
-
-    const password_hash = await bcrypt.hash(password, 10);
-    const [result] = await pool.query(
-      'INSERT INTO users (name, manager_id, email, phone, password_hash, role) VALUES (?, ?, ?, ?, ?, ?)',
-      [normalizedName, normalizedManagerId, normalizedEmail, normalizedPhone, password_hash, 'manager']
-    );
-
-    res.status(201).json({
-      message: 'Manager created successfully',
-      user: {
-        user_id: result.insertId,
-        manager_id: normalizedManagerId,
-        name: normalizedName,
-        email: normalizedEmail,
-        role: 'manager',
-      },
-    });
-  } catch (err) {
-    console.error('Create manager error:', err);
-    if (err.code === 'ER_DUP_ENTRY') {
-      return res.status(409).json({ error: 'Email, manager ID, or phone number already exists' });
-    }
-    res.status(500).json({ error: 'Internal server error' });
-  }
-};
-
-// POST /api/auth/forgot-password
-exports.forgotPassword = async (req, res) => {
-  try {
-    const { name, email, phone } = req.body;
-    if (!name || !email || !phone) {
-      return res.status(400).json({ error: 'Name, email, and phone are required' });
-    }
-
-    const [rows] = await pool.query(
-      'SELECT user_id, name, email FROM users WHERE LOWER(name) = LOWER(?) AND LOWER(email) = LOWER(?) AND phone = ?',
-      [name.trim(), email.trim(), phone.trim()]
-    );
-
-    if (rows.length === 0) {
-      return res.status(404).json({ error: 'No account found matching these details. Please check your information.' });
-    }
-
-    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789';
-    let newPassword = '';
-    for (let i = 0; i < 10; i++) newPassword += chars[Math.floor(Math.random() * chars.length)];
-
-    const newHash = await bcrypt.hash(newPassword, 10);
-    await pool.query('UPDATE users SET password_hash = ? WHERE user_id = ?', [newHash, rows[0].user_id]);
-
-    // Store reset record in password_resets table for audit
-    await pool.query(
-      'INSERT INTO password_resets (user_id, new_password) VALUES (?, ?)',
-      [rows[0].user_id, newPassword]
-    );
-
-    res.status(200).json({ message: 'Password has been reset.', newPassword });
-  } catch (err) {
-    console.error('Forgot password error:', err);
     res.status(500).json({ error: 'Failed to reset password. Please try again later.' });
   }
 };
