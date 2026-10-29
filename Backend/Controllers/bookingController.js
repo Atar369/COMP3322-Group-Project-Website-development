@@ -20,6 +20,11 @@ async function create(request, response) {
     return response.status(400).json({error: "Please fill in all required booking fields."});
   }
 
+  const size = Number(party_size);
+  if (isNaN(size) || size <= 0) {
+    return response.status(400).json({error: "Invalid party size."});
+  }
+
   // Last entry 21:00; orders must be placed before 21:15
   const [hStr, mStr] = booking_time.split(':');
   if (parseInt(hStr, 10) > 21 || (parseInt(hStr, 10) === 21 && parseInt(mStr, 10) > 0)) {
@@ -36,21 +41,23 @@ async function create(request, response) {
     return response.status(400).json({error: "Bookings must be made at least one day in advance."});
   }
 
-  const size = Number(party_size);
   const maxCap = size + 2;
+  const connection = await db.getConnection();
 
   try {
+    await connection.beginTransaction();
     const checkUserDaily = `SELECT EXISTS (
       SELECT 1 FROM bookings
       WHERE user_id = ? AND DATE(booking_date) = DATE(?) AND status = 'booked'
     ) AS has_booking;`;
-    const [userRows] = await db.query(checkUserDaily, [user_id, booking_date]);
+    const [userRows] = await connection.query(checkUserDaily, [user_id, booking_date]);
     if (userRows[0].has_booking === 1) {
+      await connection.rollback();
       return response.status(409).json({error: "You can only make one booking per day."});
     }
 
     // Auto-assign a table with capacity between party_size and party_size+2 that is free
-    const [tableRows] = await db.query(
+    const [tableRows] = await connection.query(
       `SELECT t.table_id FROM restaurant_tables t
        WHERE t.status = 'available' AND t.capacity BETWEEN ? AND ?
          AND NOT EXISTS (
@@ -60,25 +67,32 @@ async function create(request, response) {
              AND TIME(?) < ADDTIME(b.booking_time, '01:00:00')
              AND ADDTIME(?, '01:00:00') > b.booking_time
          )
-       ORDER BY t.capacity ASC LIMIT 1`,
+       ORDER BY t.capacity ASC LIMIT 1
+       FOR UPDATE`,
       [size, maxCap, booking_date, booking_time, booking_time]
     );
 
     if (tableRows.length === 0) {
+      await connection.rollback();
       return response.status(409).json({error: "No available table for your party size at this time."});
     }
     const table_id = tableRows[0].table_id;
 
     const insert = `INSERT INTO bookings (user_id, table_id, booking_date, booking_time, party_size, status, special_request, pre_order) VALUES (?, ?, ?, ?, ?, "booked", ?, ?)`;
-    const [result] = await db.query(insert, [user_id, table_id, booking_date, booking_time, party_size, special_request || "", pre_order ? JSON.stringify(pre_order) : null]);
+    const [result] = await connection.query(insert, [user_id, table_id, booking_date, booking_time, size, special_request || "", pre_order ? JSON.stringify(pre_order) : null]);
+    
+    await connection.commit();
     return response.status(201).json({message: "The table is booked successfully.", bookingId: result.insertId});
 
   } catch (error) {
+    await connection.rollback();
     if (error.code === "ER_DUP_ENTRY") {
       return response.status(409).json({error: "The table is already booked for this timeslot."});
     }
     console.error("database error:", error);
     return response.status(500).json({error: "Please try again later."});
+  } finally {
+    connection.release();
   }
 }
 
