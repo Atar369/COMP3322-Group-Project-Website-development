@@ -5,6 +5,7 @@ const errorHandler = require("./middleware/errorHandler");
 const queueController = require("./Controllers/queueController");
 const bookingController = require("./Controllers/bookingController");
 const menuController = require("./Controllers/menuController");
+const dashboardRoutes = require('./Routes/dashboardRoutes');
 
 const app = express();
 const port = process.env.PORT || 5000;
@@ -41,7 +42,7 @@ app.use('/api/menu', require('./Routes/menuRoutes'));
 app.use('/api/auth', require('./Routes/authRoutes'));
 app.use('/api/orders', require('./Routes/orderRoutes'));
 app.use('/api/queue', require('./Routes/queueRoutes'));
-
+app.use('/api/manager', dashboardRoutes);
 // Global Error Handler
 app.use(errorHandler);
 
