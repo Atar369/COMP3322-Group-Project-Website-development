@@ -41,3 +41,6 @@ exports.requireRole = (...roles) => {
     next();
   };
 };
+
+exports.protect = exports.verifyToken;
+exports.managerOnly = exports.requireRole('manager');
