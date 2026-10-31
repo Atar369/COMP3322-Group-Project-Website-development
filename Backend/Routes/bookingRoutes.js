@@ -2,7 +2,7 @@ const express = require("express");
 const router = express.Router();
 const bookingController = require("../Controllers/bookingController");
 
-const { protect, managerOnly } = require("../Middleware/authMiddleware");
+const { protect, managerOnly } = require("../middleware/authMiddleware");
 
 router.get("/tables", bookingController.tables);
 router.get("/availability", bookingController.availability);
