@@ -330,12 +330,37 @@ async function arrive(request, response) {
        FROM bookings WHERE booking_id = ?`,
       [id]
     );
+
     if (!bookings.length) {
       return response.status(404).json({error: "Booking not found."});
     }
+
+    const currStatus = bookings[0].status;
+
+    if (currStatus === 'cancelled') {
+      return response.status(409).json({error: "Booking has been cancelled."});
+    }
+
+    if (currStatus === 'no_show') {
+      return response.status(409).json({error: "Booking has been marked as no-show."});
+    }
+
+    if (currStatus === 'serving') {
+      return response.status(409).json({error: "Booking is already marked as serving."});
+    }
+
+    if (currStatus === 'finished') {
+      return response.status(409).json({error: "Booking has already been finished."});
+    }
+
+    if (currStatus === 'paid') {
+      return response.status(409).json({error: "Booking has already been paid."});
+    }
+
     if (bookings[0].status !== 'booked') {
       return response.status(409).json({error: "Booking is no longer awaiting check-in."});
     }
+
     if (!isCheckInWindowOpen(bookings[0].booking_date, bookings[0].booking_time)) {
       await markExpiredBookingsNoShow();
       return response.status(409).json({error: "Check-in is available only from the booked time until 15 minutes after."});
@@ -355,6 +380,7 @@ async function arrive(request, response) {
       await markExpiredBookingsNoShow();
       return response.status(409).json({error: "Check-in is available only during the 15 minutes after the booked time."});
     }
+    
     return response.json({message: "Booking marked as serving."});
   } catch (error) {
     console.error("database error:", error);
