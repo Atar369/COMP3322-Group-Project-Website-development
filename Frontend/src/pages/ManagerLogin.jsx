@@ -1,45 +1,28 @@
-import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import LoginLayout from '../components/LoginLayout';
 
 export default function ManagerLogin() {
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [error, setError] = useState('');
   const { login } = useAuth();
   const navigate = useNavigate();
 
-  async function handleSubmit(e) {
-    e.preventDefault();
+  async function handleLogin(email, password) {
     const result = await login(email, password);
-    if (result.error) { setError(result.error); return; }
-    if (result.user.role === 'manager') {
-      navigate('/manager/dashboard');
-    } else {
-      setError('This account is not a manager account.');
-    }
+    if (result.error) return result.error;
+    if (result.user.role !== 'manager') return 'This account is not a manager account.';
+    navigate('/manager/dashboard');
   }
 
   return (
-    <div className="page" style={{ maxWidth: 380 }}>
-      <h1>Manager Login</h1>
-      <p style={{ color: '#6b6558', fontSize: '0.9rem' }}>
-        Demo account — manager@example.com (password: password)
-      </p>
-      <form onSubmit={handleSubmit}>
-        <div className="field">
-          <label>Email</label>
-          <input type="email" value={email} onChange={e => setEmail(e.target.value)} required />
-        </div>
-        <div className="field">
-          <label>Password</label>
-          <input type="password" value={password} onChange={e => setPassword(e.target.value)} required />
-        </div>
-        {error && <p className="error-text">{error}</p>}
-        <button className="btn" type="submit">Log in</button>
-      </form>
-      <p style={{ marginTop: 8 }}><Link to="/forgot-password">Forgot password?</Link></p>
-      <p style={{ marginTop: 12 }}><Link to="/login">Back to choice</Link></p>
-    </div>
+    <LoginLayout
+      title="Manager login"
+      subtitle="Sign in to manage the menu, orders, queue and bookings."
+      hint="Demo manager: manager@example.com (password: password)"
+      image="/login-images/login-manager.jpg"
+      onSubmit={handleLogin}
+    >
+      <p><Link className="cl-login01__link" to="/forgot-password">Forgot password?</Link></p>
+      <p style={{ marginTop: 8 }}><Link className="cl-login01__link" to="/welcome">Back to choice</Link></p>
+    </LoginLayout>
   );
 }
