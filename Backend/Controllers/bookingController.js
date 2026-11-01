@@ -1,5 +1,6 @@
 const db = require("../db")
 const { isCheckInWindowOpen } = require('../utils/bookingAttendance');
+const { isValidDate, isValidTime, isValidPartySize } = require('../utils/validators');
 
 async function markExpiredBookingsNoShow() {
   await db.query(
@@ -20,10 +21,19 @@ async function create(request, response) {
     return response.status(400).json({error: "Please fill in all required booking fields."});
   }
 
-  const size = Number(party_size);
-  if (isNaN(size) || size <= 0) {
+  if (!isValidDate(booking_date)) {
+    return response.status(400).json({error: "Invalid booking date format. Use YYYY-MM-DD."});
+  }
+
+  if (!isValidTime(booking_time)) {
+    return response.status(400).json({error: "Invalid booking time format. Use HH:mm."});
+  }
+
+  if (!isValidPartySize(party_size)) {
     return response.status(400).json({error: "Invalid party size."});
   }
+
+  const size = Number(party_size);
 
   // Last entry 21:00; orders must be placed before 21:15
   const [hStr, mStr] = booking_time.split(':');
@@ -380,7 +390,7 @@ async function arrive(request, response) {
       await markExpiredBookingsNoShow();
       return response.status(409).json({error: "Check-in is available only during the 15 minutes after the booked time."});
     }
-    
+
     return response.json({message: "Booking marked as serving."});
   } catch (error) {
     console.error("database error:", error);
