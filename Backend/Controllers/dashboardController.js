@@ -1,7 +1,14 @@
 const db = require('../db');
 
-const tdStat = async () => {
-    const query = `
+const tdStat = async (tarDate = null) => {
+    const query = tarDate ? `
+        SELECT
+            COALESCE(SUM(total_amount), 0.00) AS tdRevenue,
+            COUNT(order_id) AS tdPaidOrders
+        FROM orders
+        WHERE DATE(order_time) = ?
+            AND payment_status = 'paid';
+    ` : `
         SELECT
             COALESCE(SUM(total_amount), 0.00) AS tdRevenue,
             COUNT(order_id) AS tdPaidOrders
@@ -9,7 +16,7 @@ const tdStat = async () => {
         WHERE DATE(order_time) = CURDATE() 
             AND payment_status = 'paid';
     `;
-    const [rows] = await db.query(query);
+    const [rows] = await db.query(query, tarDate ? [tarDate] : []);
     return rows[0] || { tdRevenue: 0.00, tdPaidOrders: 0 };
 };
 
@@ -59,8 +66,16 @@ const topItems = async () => {
     return rows;
 };
 
-const hrOrder = async () => {
-    const query = `
+const hrOrder = async (tarDate = null) => {
+    const query = tarDate ? `
+        SELECT
+            HOUR(order_time) AS hr,
+            COUNT(order_id) AS count
+        FROM orders
+        WHERE DATE(order_time) = ?
+        GROUP BY HOUR(order_time)
+        ORDER BY hr ASC;
+    ` : `
         SELECT
             HOUR(order_time) AS hr,
             COUNT(order_id) AS count
@@ -69,13 +84,14 @@ const hrOrder = async () => {
         GROUP BY HOUR(order_time)
         ORDER BY hr ASC;
     `;
-    const [rows] = await db.query(query);
+    const [rows] = await db.query(query, tarDate ? [tarDate] : []);
     return rows;
 };
 
 const dashboardData = async (request, response) => {
     try {
         const managerId = request.user?.user_id || 'Unknown';
+        const tarDate = request.query?.date || null;
         console.info(`[Dashboard] Manager ID: ${managerId} requested dashboard data at ${new Date().toISOString()}`);
 
         const [
@@ -85,18 +101,18 @@ const dashboardData = async (request, response) => {
             topItemsData,
             hrOrderData
         ] = await Promise.all([
-            tdStat(),
+            tdStat(tarDate),
             weekStat(),
             revenueTrend(),
             topItems(),
-            hrOrder()
+            hrOrder(tarDate)
         ]);
 
         const topSellingItem = topItemsData.length > 0 ? topItemsData[0] : null;
 
         const dashboardResponse = {
             metadata: {
-                snapshotDate: new Date().toISOString().split('T')[0],
+                snapshotDate: tarDate || new Date().toISOString().split('T')[0],
                 generatedAt: new Date()
             },
 
