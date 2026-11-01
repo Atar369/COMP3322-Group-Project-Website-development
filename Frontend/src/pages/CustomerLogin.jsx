@@ -1,47 +1,29 @@
-import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import LoginLayout from '../components/LoginLayout';
 
 export default function CustomerLogin() {
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [error, setError] = useState('');
   const { login } = useAuth();
   const navigate = useNavigate();
 
-  async function handleSubmit(e) {
-    e.preventDefault();
+  async function handleLogin(email, password) {
     const result = await login(email, password);
-    if (result.error) { setError(result.error); return; }
-    if (result.user.role === 'customer') {
-      navigate('/home', { replace: true });
-    } else {
-      setError('This account is not a customer account.');
-    }
+    if (result.error) return result.error;
+    if (result.user.role !== 'customer') return 'This account is not a customer account.';
+    navigate('/home', { replace: true });
   }
 
   return (
-    <div className="page" style={{ maxWidth: 380 }}>
-      <h1>Customer Login</h1>
-      <p style={{ color: '#6b6558', fontSize: '0.9rem' }}>
-        Demo accounts — customer: 
-        alice@example.com (pw: password), alex@example.com (pw: password), blair@example.com (pw: password), casey@example.com (pw: password)
-      </p>
-      <form onSubmit={handleSubmit}>
-        <div className="field">
-          <label>Email</label>
-          <input type="email" value={email} onChange={e => setEmail(e.target.value)} required />
-        </div>
-        <div className="field">
-          <label>Password</label>
-          <input type="password" value={password} onChange={e => setPassword(e.target.value)} required />
-        </div>
-        {error && <p className="error-text">{error}</p>}
-        <button className="btn" type="submit">Log in</button>
-      </form>
-      <p style={{ marginTop: 16 }}>No account? <Link to="/register/customer">Register</Link></p>
-      <p style={{ marginTop: 8 }}><Link to="/forgot-password">Forgot password?</Link></p>
-      <p style={{ marginTop: 12 }}><Link to="/login">Back to choice</Link></p>
-    </div>
+    <LoginLayout
+      title="Customer login"
+      subtitle="Sign in to book a table, order food and join the queue."
+      hint="Demo customer: alice@example.com (password: password)"
+      image="/login-images/login-customer.jpg"
+      onSubmit={handleLogin}
+    >
+      <p>No account? <Link className="cl-login01__link" to="/register/customer">Register</Link></p>
+      <p style={{ marginTop: 8 }}><Link className="cl-login01__link" to="/forgot-password">Forgot password?</Link></p>
+      <p style={{ marginTop: 8 }}><Link className="cl-login01__link" to="/login">Back to choice</Link></p>
+    </LoginLayout>
   );
 }
