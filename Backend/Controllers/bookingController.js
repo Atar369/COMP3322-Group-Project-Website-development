@@ -190,18 +190,58 @@ async function listAll(request, response) {
 // Add a new function to cancel a booking 
 async function cancel(request, response) {
   const { id } = request.params;
+  const connection = await db.getConnection();
+
   try {
-    const [result] = await db.query(
+    await connection.beginTransaction();
+
+    const [bookings] = await connection.query(
+      `SELECT table_id, status FROM bookings WHERE booking_id = ? FOR UPDATE`,
+      [id]
+    );
+
+    if (bookings.length === 0) {
+      await connection.rollback();
+      return response.status(404).json({error: "Booking not found."});
+    }
+
+    const booking = bookings[0];
+
+    if (booking.status !== 'booked') {
+      await connection.rollback();
+      return response.status(409).json({error: "Only active bookings can be cancelled."});
+    }
+
+    const table_id = booking.table_id;
+
+    const [result] = await connection.query(
       `UPDATE bookings SET status = 'cancelled' WHERE booking_id = ? AND status = 'booked'`,
       [id]
     );
+
     if (result.affectedRows === 0) {
+      await connection.rollback();
       return response.status(404).json({error: "Booking not found or already inactive."});
     }
+
+    if (table_id) {
+      await connection.query(
+        `UPDATE restaurant_tables SET status = 'available' WHERE table_id = ?`,
+        [table_id]
+      );
+    }
+
+    await connection.commit();
     return response.json({message: "Booking cancelled."});
+
   } catch (error) {
+
+    await connection.rollback();
     console.error("database error:", error);
     return response.status(500).json({error: "Please try again later."});
+
+  } finally {
+    connection.release();
   }
 }
 
@@ -433,13 +473,21 @@ async function payBooking(request, response) {
   try {
     await connection.beginTransaction();
     const [bookings] = await connection.query(
-      `SELECT table_id FROM bookings WHERE booking_id = ? AND status = 'finished' FOR UPDATE`,
+      `SELECT table_id, status FROM bookings WHERE booking_id = ? FOR UPDATE`,
       [id]
     );
     if (bookings.length === 0) {
       await connection.rollback();
       return response.status(404).json({error: "Booking not found or not in finished status."});
     }
+
+    const booking = bookings[0];
+
+    if (booking.status !== 'finished') {
+      await connection.rollback();
+      return response.status(400).json({error: "Booking not found or not in finished status."});
+    }
+
     const table_id = bookings[0].table_id;
     await connection.query(
       `UPDATE orders
@@ -454,6 +502,14 @@ async function payBooking(request, response) {
       `UPDATE bookings SET status = 'paid' WHERE table_id = ? AND status = 'finished'`,
       [table_id]
     );
+
+    if (table_id) {
+      await connection.query(
+        `UPDATE restaurant_tables SET status = 'available' WHERE table_id = ?`,
+        [table_id]
+      );
+    }
+    
     await connection.commit();
     return response.json({message: "Booking marked as paid."});
   } catch (error) {
