@@ -197,13 +197,49 @@ async function create(req, res) {
       }
       table_id = sessions[0].table_id;
     }
+
+    let total = 0;
+    const validItems = [];
+
+    for (const item of items) {
+      const [menuRows] = await conn.query(
+        `SELECT item_id, name, price, is_available FROM menu_items WHERE item_id = ? FOR UPDATE`,
+        [item.item_id]
+      );
+
+      if (menuRows.length === 0) {
+        await conn.rollback();
+        return res.status(404).json({ error: `Menu item with ID ${item.item_id} does not exist.` });
+      }
+
+      const menuItem = menuRows[0];
+      if (menuItem.is_available !== 1) {
+        await conn.rollback();
+        return res.status(409).json({ error: `Menu item "${menuItem.name}" is not available.` });
+      }
+
+      const quantity = Number(item.quantity);
+      if (isNaN(quantity) || quantity <= 0) {
+        await conn.rollback();
+        return res.status(400).json({ error: `Invalid quantity for item "${menuItem.name}".` });
+      }
+
+      const unitPrice = Number(menuItem.price);
+      total += unitPrice * quantity;
+      validItems.push({ 
+        item_id: menuItem.item_id, 
+        quantity: quantity, 
+        unit_price: unitPrice 
+      });
+    }
+
     const [result] = await conn.query(
       `INSERT INTO orders (user_id, booking_id, queue_id, table_id, status, total_amount, payment_status)
        VALUES (?, ?, ?, ?, 'pending', ?, 'unpaid')`,
       [user_id, booking_id || null, queue_id || null, table_id, total]
     );
     const order_id = result.insertId;
-    for (const item of items) {
+    for (const item of validItems) {
       await conn.query(
         `INSERT INTO order_items (order_id, item_id, quantity, unit_price) VALUES (?, ?, ?, ?)`,
         [order_id, item.item_id, item.quantity, item.unit_price]
