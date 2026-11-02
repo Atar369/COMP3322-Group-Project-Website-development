@@ -35,7 +35,6 @@ function Home() {
   const { user, loading } = useAuth();
   if (loading) return null;
   if (user?.role === 'manager') return <Navigate to="/manager/dashboard" replace />;
-  if (user) return <Navigate to="/home" replace />;
   return <Navigate to="/home" replace />;
 }
 

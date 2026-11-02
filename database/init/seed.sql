@@ -1,8 +1,6 @@
 -- Run once after schema.sql on an empty database. All names and contacts are fictional.
--- USE comp3322_restaurant;
-
 -- All demo accounts use password: "password"
--- Hash is a bcrypt hash for the demo password "password".
+
 INSERT INTO users (name, email, phone, password_hash, role) VALUES
   ('Alice Example', 'alice@example.com', '+85200000000', '$2b$10$5TaKfIAKzG3AH5fv2NxJEee27ox7UndoPCb6IIE1fVwBAiLc9TqaC', 'customer'),
   ('Alex Example', 'alex@example.com', '+85200000001', '$2b$10$5TaKfIAKzG3AH5fv2NxJEee27ox7UndoPCb6IIE1fVwBAiLc9TqaC', 'customer'),
@@ -11,13 +9,13 @@ INSERT INTO users (name, email, phone, password_hash, role) VALUES
   ('Morgan Manager', 'manager@example.com', '+85200000004', '$2b$10$5TaKfIAKzG3AH5fv2NxJEee27ox7UndoPCb6IIE1fVwBAiLc9TqaC', 'manager');
 
 INSERT INTO menu_items (name, description, category, price, image_url, is_available) VALUES
-  ('Grilled Octopus', 'Charred octopus with roasted peppers, herbs, and a bright citrus finish.', 'Starter', 168.00, '/menu-images/grilled-octopus-starter.png', TRUE),
-  ('Grilled Wagyu Striploin', 'Grilled wagyu striploin served with seasonal vegetables and a rich pan jus.', 'Main', 328.00, '/menu-images/grilled-wagyu-striploin-main.png', TRUE),
-  ('Oak & Negroni', 'A spirit-forward classic with gin, bitters, and oak-aged vermouth.', 'Beverage', 128.00, '/menu-images/oak-n-negroni-beverage.png', TRUE),
-  ('Saffron Risotto', 'Creamy saffron risotto finished with parmesan and fresh herbs.', 'Main', 188.00, '/menu-images/saffron-risotto-main.png', TRUE),
-  ('Seafood Medley with Lemon Beurre Blanc', 'A grilled seafood medley paired with a silky lemon beurre blanc.', 'Main', 268.00, '/menu-images/seafood-medley-lemon-beurre-blanc-main.png', TRUE),
-  ('Seasonal Cheesecake', 'Rich, seasonal cheesecake with a golden top and a buttery biscuit base.', 'Dessert', 88.00, '/menu-images/seasonal-cheesecake-dessert.png', TRUE),
-  ('Sparkling Rosemary Lemonade', 'House-made sparkling lemonade infused with rosemary and fresh lemon.', 'Beverage', 68.00, '/menu-images/sparkling-rosemary-lemonade-beverage.png', TRUE);
+  ('Grilled Octopus', 'Charred octopus with roasted peppers, herbs, and a bright citrus finish.', 'Starter', 168.00, '/uploads/menu-images/grilled-octopus-starter.png', TRUE),
+  ('Grilled Wagyu Striploin', 'Grilled wagyu striploin served with seasonal vegetables and a rich pan jus.', 'Main', 328.00, '/uploads/menu-images/grilled-wagyu-striploin-main.png', TRUE),
+  ('Oak & Negroni', 'A spirit-forward classic with gin, bitters, and oak-aged vermouth.', 'Beverage', 128.00, '/uploads/menu-images/oak-n-negroni-beverage.png', TRUE),
+  ('Saffron Risotto', 'Creamy saffron risotto finished with parmesan and fresh herbs.', 'Main', 188.00, '/uploads/menu-images/saffron-risotto-main.png', TRUE),
+  ('Seafood Medley with Lemon Beurre Blanc', 'A grilled seafood medley paired with a silky lemon beurre blanc.', 'Main', 268.00, '/uploads/menu-images/seafood-medley-lemon-beurre-blanc-main.png', TRUE),
+  ('Seasonal Cheesecake', 'Rich, seasonal cheesecake with a golden top and a buttery biscuit base.', 'Dessert', 88.00, '/uploads/menu-images/seasonal-cheesecake-dessert.png', TRUE),
+  ('Sparkling Rosemary Lemonade', 'House-made sparkling lemonade infused with rosemary and fresh lemon.', 'Beverage', 68.00, '/uploads/menu-images/sparkling-rosemary-lemonade-beverage.png', TRUE);
 
 INSERT INTO restaurant_tables (table_number, capacity, status) VALUES
   (1, 4, 'available'),

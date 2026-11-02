@@ -1,15 +1,28 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useCallback, useState } from 'react';
 
 export const PAGE_SIZE = 10;
 
 export function usePagination(items, resetKey = '') {
-  const [page, setPage] = useState(1);
+  const [page, setPageState] = useState(1);
   const pageCount = Math.max(1, Math.ceil(items.length / PAGE_SIZE));
   const currentPage = Math.min(page, pageCount);
 
+  const setPage = useCallback(nextPage => {
+    setPageState(prev => {
+      const candidate = typeof nextPage === 'function' ? nextPage(prev) : nextPage;
+      const numeric = Number(candidate);
+      if (!Number.isFinite(numeric)) return prev;
+      return Math.max(1, Math.min(Math.trunc(numeric), pageCount));
+    });
+  }, [pageCount]);
+
   useEffect(() => {
     setPage(1);
-  }, [resetKey]);
+  }, [resetKey, setPage]);
+
+  useEffect(() => {
+    if (page > pageCount) setPageState(pageCount);
+  }, [page, pageCount]);
 
   return {
     pageItems: items.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE),

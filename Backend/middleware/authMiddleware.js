@@ -1,19 +1,21 @@
 const jwt = require('jsonwebtoken');
 
-// Verifies the JWT token in the Authorization header
+// Accepts either HttpOnly cookie `token` or `Authorization: Bearer <jwt>` header.
 exports.verifyToken = (req, res, next) => {
-  const authHeader = req.headers.authorization;
+  const cookieToken = req.cookies?.token;
+  const headerToken = req.headers.authorization?.startsWith('Bearer ')
+    ? req.headers.authorization.split(' ')[1]
+    : null;
+  const token = cookieToken || headerToken;
 
-  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+  if (!token) {
     return res.status(401).json({ error: 'Authentication required. No token provided.' });
   }
-
-  const token = authHeader.split(' ')[1]; // "Bearer abc" → "abc"
 
   try {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
     req.user = decoded; // { user_id, email, role }
-    next();
+    return next();
   } catch (err) {
     if (err.name === 'TokenExpiredError') {
       return res.status(401).json({ error: 'Your session has expired. Please log in again.' });
@@ -31,14 +33,12 @@ exports.requireRole = (...roles) => {
     if (!req.user) {
       return res.status(401).json({ error: 'Authentication required.' });
     }
-
     if (!roles.includes(req.user.role)) {
-      return res.status(403).json({ 
-        error: `Forbidden: This action requires ${roles.join(' or ')} privileges.` 
+      return res.status(403).json({
+        error: `Forbidden: This action requires ${roles.join(' or ')} privileges.`,
       });
     }
-
-    next();
+    return next();
   };
 };
 

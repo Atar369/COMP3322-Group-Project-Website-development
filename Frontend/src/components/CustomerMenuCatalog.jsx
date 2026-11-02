@@ -9,6 +9,10 @@ import Pagination, { usePagination } from './Pagination';
 
 const FOOD_TYPES = ['Starter', 'Main', 'Side', 'Dessert', 'Beverage'];
 
+const API_BASE = import.meta.env.VITE_API_BASE_URL
+  ? import.meta.env.VITE_API_BASE_URL.replace('/api', '')
+  : 'http://localhost:5000';
+
 function getFoodType(category = '') {
   const normalized = category.trim().toLowerCase();
   if (normalized.includes('dessert') || normalized.includes('sweet')) return 'Dessert';
@@ -46,7 +50,7 @@ function MenuCard({ item, canOrder, managerMode, onAdd, onUpdatePrice, onToggleA
         </div>
         {item.image_url && (
           <img
-            src={item.image_url}
+            src={item.image_url.startsWith('http') ? item.image_url : `${API_BASE}${item.image_url}`}
             alt={item.name}
             onError={event => { event.currentTarget.style.display = 'none'; }}
           />
@@ -140,7 +144,7 @@ function MenuCard({ item, canOrder, managerMode, onAdd, onUpdatePrice, onToggleA
 
 export default function CustomerMenuCatalog({ canOrder = false, managerMode = false }) {
   const { user } = useAuth();
-  const { addItem, items, orderContext } = useCart();
+  const { addItem, items, orderContext, removeItem: removeFromCart } = useCart();
   const orderWindow = useOrderWindow(user, orderContext, canOrder);
   const [menuItems, setMenuItems] = useState([]);
   const [selectedTypes, setSelectedTypes] = useState([]);
@@ -153,7 +157,7 @@ export default function CustomerMenuCatalog({ canOrder = false, managerMode = fa
 
   useEffect(() => {
     let active = true;
-    api.get('/booking/menu')
+    api.get('/menu')
       .then(response => {
         if (active) setMenuItems(Array.isArray(response.data) ? response.data : []);
       })
@@ -228,6 +232,8 @@ export default function CustomerMenuCatalog({ canOrder = false, managerMode = fa
     try {
       await api.delete(`/menu/${item.item_id}`);
       setMenuItems(current => current.filter(existing => existing.item_id !== item.item_id));
+      // Clear from cart if present (CartContext.removeItem(item_id)).
+      removeFromCart(item.item_id);
     } catch (requestError) {
       setError(requestError.response?.data?.error || 'Could not remove the menu item.');
     }
@@ -261,7 +267,7 @@ export default function CustomerMenuCatalog({ canOrder = false, managerMode = fa
         <div>
           <span className="section-label">{managerMode ? 'MENU MANAGEMENT' : 'EMBER & OAK'}</span>
           <h1>{managerMode ? 'Manage Menu' : canOrder ? 'Order from Our Menu' : 'Explore Our Menu'}</h1>
-          <p>{managerMode ? 'Edit dish details, prices, availability, and photos.' : canOrder ? 'Choose something made for the table.' : 'Thoughtfully sourced. Artfully composed.'}</p>
+          <p>{managerMode ? 'Update prices and availability for each dish.' : canOrder ? 'Choose something made for the table.' : 'Thoughtfully sourced. Artfully composed.'}</p>
         </div>
         {managerMode && (
           <button type="button" className="btn" onClick={() => setMenuFormOpen(open => !open)}>

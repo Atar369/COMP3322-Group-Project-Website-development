@@ -6,7 +6,6 @@ const STATUS_OPTIONS = [
   ['queued', 'Queuing'],
   ['called', 'Called'],
   ['cancelled', 'Cancelled'],
-  ['no_show', 'No show'],
   ['missed', 'Missed'],
   ['serving', 'Seated'],
   ['finished', 'Finished'],
@@ -65,7 +64,7 @@ function matches(entry, filters, search) {
     queueNumber.toLowerCase(),
     customerName,
     group.toLowerCase(),
-    entry.status.toLowerCase(),
+    String(entry.status).toLowerCase(),
     String(entry.party_size),
     joinedDate,
     ...tableInfo,
@@ -227,7 +226,11 @@ export default function ManagerQueueHistory() {
             {filteredEntries.length} {filteredEntries.length === 1 ? 'ticket' : 'tickets'}
           </p>
 
-          {error && <p className="error-text">{error} <button className="btn secondary" onClick={load}>Retry</button></p>}
+          {error && (
+            <p className="error-text">
+              {error} <button className="btn secondary" onClick={load}>Retry</button>
+            </p>
+          )}
           {loading && !error && <p className="manager-queue-history-empty">Loading queue history…</p>}
           {!loading && !error && filteredEntries.length === 0 && (
             <p className="manager-queue-history-empty">No queue tickets match these filters.</p>

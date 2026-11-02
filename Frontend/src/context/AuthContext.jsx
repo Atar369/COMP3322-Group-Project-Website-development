@@ -6,31 +6,17 @@ const AuthContext = createContext(null);
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [token, setToken] = useState(() => localStorage.getItem('token'));
 
   useEffect(() => {
-    const storedToken = localStorage.getItem('token');
-    setToken(storedToken);
-    
-    if (!storedToken) {
-      setLoading(false);
-      return;
-    }
-
     api.get('/auth/me')
       .then(res => setUser(res.data.user ?? res.data))
-      .catch(() => {
-        localStorage.removeItem('token');
-        setToken(null);
-      })
+      .catch(() => setUser(null))
       .finally(() => setLoading(false));
   }, []);
 
   async function login(email, password) {
     try {
       const res = await api.post('/auth/login', { email, password });
-      localStorage.setItem('token', res.data.token);
-      setToken(res.data.token);
       setUser(res.data.user);
       return { user: res.data.user };
     } catch (err) {
@@ -38,11 +24,9 @@ export function AuthProvider({ children }) {
     }
   }
 
-  async function register(name, email, phone, password, role) {
+  async function register(name, email, phone, password) {
     try {
-      const res = await api.post('/auth/register', { name, email, phone, password, role });
-      localStorage.setItem('token', res.data.token);
-      setToken(res.data.token);
+      const res = await api.post('/auth/register', { name, email, phone, password });
       setUser(res.data.user);
       return { user: res.data.user };
     } catch (err) {
@@ -50,17 +34,22 @@ export function AuthProvider({ children }) {
     }
   }
 
-  function logout() {
-    localStorage.removeItem('token');
-    setToken(null);
+  async function logout() {
+    try {
+      await api.post('/auth/logout');
+    } catch {
+      /* ignore network errors on logout */
+    }
     setUser(null);
   }
 
   return (
-    <AuthContext.Provider value={{ user, token, login, register, logout, loading }}>
+    <AuthContext.Provider value={{ user, login, register, logout, loading }}>
       {children}
     </AuthContext.Provider>
   );
 }
 
-export function useAuth() { return useContext(AuthContext); }
+export function useAuth() {
+  return useContext(AuthContext);
+}

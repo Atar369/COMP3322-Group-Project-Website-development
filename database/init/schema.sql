@@ -1,4 +1,4 @@
--- The Kitchen Ledger - Beta B database schema
+-- Ember & Oak database schema
 -- MySQL 8.0.16+
 -- Run on a new, empty restaurant_app database.
 
@@ -14,6 +14,7 @@ CREATE TABLE users (
   reset_token_expires DATETIME NULL,
   failed_attempts INT UNSIGNED NOT NULL DEFAULT 0,
   lock_until DATETIME NULL,
+  last_failed_at DATETIME NULL,
   created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (user_id),
@@ -163,15 +164,3 @@ CREATE TABLE queue_auto_call_settings (
 
 INSERT IGNORE INTO queue_auto_call_settings (group_code, enabled)
 VALUES ('A', FALSE), ('B', FALSE), ('C', FALSE);
-
--- Matches the current Backend password-reset table; the reset flow needs a security fix.
-CREATE TABLE password_resets (
-  reset_id INT UNSIGNED NOT NULL AUTO_INCREMENT,
-  user_id INT UNSIGNED NOT NULL,
-  new_password VARCHAR(20) NOT NULL,
-  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  PRIMARY KEY (reset_id),
-  KEY idx_reset_user (user_id),
-  CONSTRAINT fk_reset_user FOREIGN KEY (user_id) REFERENCES users (user_id)
-    ON DELETE CASCADE ON UPDATE RESTRICT
-);

@@ -46,6 +46,21 @@ async function saveImage(file) {
   return { filename, url: `/uploads/menu-images/${filename}` };
 }
 
+// GET /api/menu — protected (customer + manager can read)
+async function list(request, response) {
+  try {
+    const [rows] = await db.query(
+      `SELECT item_id, name, description, category, price, image_url, is_available
+       FROM menu_items
+       ORDER BY category ASC, name ASC, item_id ASC`
+    );
+    return response.json(rows);
+  } catch (error) {
+    console.error('Menu list failed:', error);
+    return response.status(500).json({ error: 'Could not load the menu. Please try again.' });
+  }
+}
+
 async function create(request, response) {
   const validationError = validateMenuFields(request.body);
   if (validationError) return response.status(400).json({ error: validationError });
@@ -88,6 +103,7 @@ async function create(request, response) {
   }
 }
 
+// PATCH /api/menu/:id — manager: only price + is_available
 async function update(request, response) {
   const { id } = request.params;
   const { price, is_available: isAvailable } = request.body;
@@ -109,7 +125,9 @@ async function update(request, response) {
     updates.push('is_available = ?');
     values.push(isAvailable);
   }
-  if (updates.length === 0) return response.status(400).json({ error: 'Provide a price or availability update.' });
+  if (updates.length === 0) {
+    return response.status(400).json({ error: 'Provide a price or availability update.' });
+  }
 
   try {
     values.push(id);
@@ -128,7 +146,6 @@ async function update(request, response) {
       [id]
     );
     return response.json({ item: rows[0] });
-
   } catch (error) {
     console.error('Menu item update failed:', error);
     return response.status(500).json({ error: 'Could not update the menu item. Please try again.' });
@@ -137,8 +154,21 @@ async function update(request, response) {
 
 async function remove(request, response) {
   try {
+    const [rows] = await db.query(
+      'SELECT image_url FROM menu_items WHERE item_id = ?',
+      [request.params.id]
+    );
+    if (!rows.length) return response.status(404).json({ error: 'Menu item not found.' });
+
     const [result] = await db.query('DELETE FROM menu_items WHERE item_id = ?', [request.params.id]);
     if (!result.affectedRows) return response.status(404).json({ error: 'Menu item not found.' });
+
+    const imageUrl = rows[0].image_url;
+    if (imageUrl && imageUrl.startsWith('/uploads/menu-images/')) {
+      const filename = imageUrl.split('/').pop();
+      await fs.unlink(path.join(MENU_IMAGE_DIR, filename)).catch(() => {});
+    }
+
     return response.json({ message: 'Menu item removed.' });
   } catch (error) {
     if (error.code === 'ER_ROW_IS_REFERENCED_2') {
@@ -151,4 +181,4 @@ async function remove(request, response) {
   }
 }
 
-module.exports = { create, update, remove, MENU_IMAGE_DIR };
+module.exports = { list, create, update, remove, MENU_IMAGE_DIR };

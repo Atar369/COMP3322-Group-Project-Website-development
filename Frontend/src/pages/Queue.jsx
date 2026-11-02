@@ -1,7 +1,12 @@
-﻿import { useState, useEffect } from 'react';
+﻿import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../context/AuthContext';
 import api from '../services/api';
-import { formatQueueCallingCountdown, getQueueCallingCountdown, isLastOrderCutoffReached } from '../utils/orderingWindow';
+import { socket } from '../socket';
+import {
+  formatQueueCallingCountdown,
+  getQueueCallingCountdown,
+  isLastOrderCutoffReached,
+} from '../utils/orderingWindow';
 
 function getGroupLabel(size) {
   if (size <= 2) return 'A';
@@ -15,10 +20,6 @@ function getGroupRange(group) {
   return '7+ People';
 }
 
-function isAfter21(now = new Date()) {
-  return isLastOrderCutoffReached(now);
-}
-
 export default function Queue() {
   const { user } = useAuth();
   const [partySize, setPartySize] = useState(2);
@@ -27,33 +28,68 @@ export default function Queue() {
   const [joinError, setJoinError] = useState('');
   const [rejoinError, setRejoinError] = useState('');
   const [isRejoining, setIsRejoining] = useState(false);
+  const [calledBanner, setCalledBanner] = useState(null);
   const [now, setNow] = useState(new Date());
 
+  // Timer for the 21:00 cutoff countdown
   useEffect(() => {
     const timer = setInterval(() => setNow(new Date()), 1000);
     return () => clearInterval(timer);
   }, []);
 
-  function loadAll() {
-    api.get('/queue').then(r => setAllQueue(Array.isArray(r.data) ? r.data : [])).catch(() => {});
-    api.get(`/queue/user/${user.user_id}`).then(r => {
-      const entries = Array.isArray(r.data) ? r.data : [];
+  // Fetch Queue Data
+  const loadAll = useCallback(async () => {
+    if (!user) return;
+    try {
+      const [queueRes, mineRes] = await Promise.all([
+        api.get('/queue'),
+        api.get(`/queue/user/${user.user_id}`),
+      ]);
+      setAllQueue(Array.isArray(queueRes.data) ? queueRes.data : []);
+      
+      const entries = Array.isArray(mineRes.data) ? mineRes.data : [];
       const active = entries.find(q => ['queued', 'called', 'serving'].includes(q.status));
-      const today = new Date().toISOString().slice(0, 10);
-      const missed = entries.find(q => q.status === 'missed' && String(q.queue_date).slice(0, 10) === today);
+      
+      // Use local date to avoid UTC timezone bugs
+      const today = new Date().toLocaleDateString('en-CA');
+      
+      const missed = entries.find(
+        q => q.status === 'missed' && String(q.queue_date).slice(0, 10) === today
+      );
       setMyEntry(active || missed || null);
-    }).catch(() => {});
-  }
-
-  useEffect(loadAll, [user]);
-  useEffect(() => {
-    const timer = setInterval(loadAll, 5000);
-    return () => clearInterval(timer);
+    } catch {
+      /* silent */
+    }
   }, [user]);
+
+  // Setup WebSocket & Initial Load
+  useEffect(() => {
+    loadAll();
+
+    if (!socket.connected) socket.connect();
+
+    const refresh = () => loadAll();
+    const onCalled = payload => {
+      if (!payload) return;
+      setCalledBanner(payload);
+      refresh();
+      
+      // Auto-hide the banner after 15 seconds
+      setTimeout(() => setCalledBanner(null), 15000);
+    };
+
+    socket.on('queue:update', refresh);
+    socket.on('queue:called', onCalled);
+
+    return () => {
+      socket.off('queue:update', refresh);
+      socket.off('queue:called', onCalled);
+    };
+  }, [loadAll]);
 
   async function handleJoin() {
     setJoinError('');
-    if (isAfter21(now)) {
+    if (isLastOrderCutoffReached(now)) {
       setJoinError('The restaurant stops accepting new queue entries at 21:00. Please try again tomorrow.');
       return;
     }
@@ -87,8 +123,11 @@ export default function Queue() {
   }
 
   const groups = ['A', 'B', 'C'];
+  
   function getNowServing(group) {
-    const today = new Date().toISOString().slice(0, 10);
+    // Use local date
+    const today = new Date().toLocaleDateString('en-CA');
+    
     return allQueue
       .filter(q => getGroupLabel(q.party_size) === group && q.status === 'called' && String(q.queue_date).slice(0, 10) === today)
       .sort((a, b) => new Date(b.called_at) - new Date(a.called_at))[0];
@@ -99,28 +138,44 @@ export default function Queue() {
     : null;
   const missedNumber = Number(myEntry?.queue_number?.slice(1));
   const currentNumber = Number(currentGroupCall?.queue_number?.slice(1));
+  
   const isWithinRejoinWindow = Number.isFinite(missedNumber)
     && Number.isFinite(currentNumber)
     && missedNumber <= currentNumber
     && missedNumber >= currentNumber - 35;
+    
   const canRejoin = myEntry?.status === 'missed'
     && myEntry.rejoin_count === 0
     && isWithinRejoinWindow;
-  const canJoin = !isAfter21(now);
+    
+  const canJoin = !isLastOrderCutoffReached(now);
   const callingCountdown = getQueueCallingCountdown(now);
 
   return (
     <div className="page">
+      {/* REAL-TIME BANNER (Appears when the manager calls your number via WebSocket) */}
+      {calledBanner && (
+        <div style={{
+          position: 'fixed', top: '80px', left: '50%', transform: 'translateX(-50%)',
+          background: 'var(--green)', color: 'white', padding: '20px 40px',
+          borderRadius: '8px', boxShadow: '0 4px 12px rgba(0,0,0,0.15)', zIndex: 1000,
+          textAlign: 'center', animation: 'pulse 2s infinite'
+        }}>
+          <h2 style={{ color: 'white', margin: '0 0 10px' }}>🔔 {calledBanner.queueNumber}</h2>
+          <p style={{ margin: 0, fontSize: '1.1rem' }}>{calledBanner.message}</p>
+        </div>
+      )}
+
       <h1>Queue</h1>
       <p style={{ color: '#6b6558', fontSize: '0.88rem', marginBottom: 20 }}>
         Once seated, you have 45 minutes to place orders. New orders stop at 21:00.
       </p>
+      
       {(callingCountdown.active || callingCountdown.stopped) && (
         <div
           role="status"
           style={{
-            marginBottom: 20,
-            padding: '12px 16px',
+            marginBottom: 20, padding: '12px 16px',
             border: `1px solid ${callingCountdown.stopped ? 'var(--rust)' : 'var(--mustard)'}`,
             background: callingCountdown.stopped ? '#fff3f0' : '#fff9e9',
             color: callingCountdown.stopped ? 'var(--rust)' : 'var(--ink)',
@@ -129,9 +184,10 @@ export default function Queue() {
         >
           {callingCountdown.stopped
             ? 'Queue calling has stopped for today.'
-            : `Queue calling stops in ${formatQueueCallingCountdown(callingCountdown.remainingMs)}. Calling will stop at 21:00.`}
+            : `Queue calling stops in ${formatQueueCallingCountdown(callingCountdown.remainingMs)}.`}
         </div>
       )}
+
       <div style={{ marginBottom: 32 }}>
         <h2 style={{ margin: '0 0 16px' }}>Now Calling</h2>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 16 }}>
@@ -152,6 +208,7 @@ export default function Queue() {
           })}
         </div>
       </div>
+
       {!myEntry ? (
         <div className="card">
           <h3 style={{ marginBottom: 8 }}>Join the Waiting List</h3>
@@ -181,7 +238,9 @@ export default function Queue() {
             </div>
             <div>
               <div style={{ fontSize: '0.8rem', fontWeight: 600, marginBottom: 4 }}>Status</div>
-              <div style={{ fontSize: '0.95rem', textTransform: 'capitalize' }}>{myEntry.status}</div>
+              <div style={{ fontSize: '0.95rem', textTransform: 'capitalize', color: myEntry.status === 'called' ? 'var(--rust)' : 'inherit', fontWeight: myEntry.status === 'called' ? 'bold' : 'normal' }}>
+                {myEntry.status === 'called' ? '🔔 CALLED - Please proceed to counter' : myEntry.status}
+              </div>
             </div>
             <div>
               <div style={{ fontSize: '0.8rem', fontWeight: 600, marginBottom: 4 }}>Joined At</div>
@@ -192,11 +251,13 @@ export default function Queue() {
               <div style={{ fontSize: '0.95rem' }}>{myEntry.party_size} people</div>
             </div>
           </div>
+          
           {myEntry.status === 'serving' && (
             <div style={{ marginTop: 12, padding: 10, background: 'var(--paper-dim)', borderLeft: '3px solid var(--green)' }}>
               <p style={{ margin: 0, fontWeight: 600, color: 'var(--green)' }}>You are now seated. You may place your order.</p>
             </div>
           )}
+          
           {myEntry.status === 'missed' && (
             <div style={{ marginTop: 12, padding: 10, background: 'var(--paper-dim)', borderLeft: '3px solid var(--mustard)' }}>
               <p style={{ margin: 0 }}>
@@ -224,6 +285,7 @@ export default function Queue() {
               </button>
             </div>
           )}
+          
           {['queued', 'called'].includes(myEntry.status) && (
             <button className="btn secondary" onClick={handleLeave} style={{ marginTop: 20, width: '100%' }}>Leave Queue</button>
           )}

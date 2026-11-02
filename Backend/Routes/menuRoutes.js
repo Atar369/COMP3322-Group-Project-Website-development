@@ -16,6 +16,9 @@ const upload = multer({
 });
 const managerOnly = [verifyToken, requireRole('manager')];
 
+// GET /api/menu — any authenticated user (customer + manager)
+router.get('/', verifyToken, menuController.list);
+
 router.post('/', ...managerOnly, (request, response, next) => {
   upload.single('image')(request, response, error => {
     if (error) {
@@ -30,6 +33,7 @@ router.post('/', ...managerOnly, (request, response, next) => {
     return next();
   });
 }, menuController.create);
+
 router.patch('/:id', ...managerOnly, menuController.update);
 router.delete('/:id', ...managerOnly, menuController.remove);
 

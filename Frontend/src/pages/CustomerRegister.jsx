@@ -8,13 +8,22 @@ export default function CustomerRegister() {
   const { register } = useAuth();
   const navigate = useNavigate();
 
-  function update(field, value) { setForm(prev => ({ ...prev, [field]: value })); }
+  function update(field, value) {
+    setForm(prev => ({ ...prev, [field]: value }));
+  }
 
   async function handleSubmit(e) {
     e.preventDefault();
-    const result = await register(form.name, form.email, form.phone, form.password, 'customer');
-    if (result.error) { setError(result.error); return; }
-    navigate('/login/customer');
+    setError('');
+    
+    const result = await register(form.name, form.email, form.phone, form.password);
+    
+    if (result.error) {
+      setError(result.error);
+      return;
+    }
+    
+    navigate('/menu'); 
   }
 
   return (
@@ -35,12 +44,20 @@ export default function CustomerRegister() {
         </div>
         <div className="field">
           <label>Password</label>
-          <input type="password" value={form.password} onChange={e => update('password', e.target.value)} required />
+          <input
+            type="password"
+            minLength={6}
+            value={form.password}
+            onChange={e => update('password', e.target.value)}
+            required
+          />
         </div>
         {error && <p className="error-text">{error}</p>}
         <button className="btn" type="submit">Register</button>
       </form>
-      <p style={{ marginTop: 16 }}>Already have an account? <Link to="/login/customer">Log in</Link></p>
+      <p style={{ marginTop: 16 }}>
+        Already have an account? <Link to="/login/customer">Log in</Link>
+      </p>
     </div>
   );
 }
