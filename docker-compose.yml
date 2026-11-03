@@ -1,28 +1,38 @@
-# docker-compose.yml (skeleton — teammates fill in backend/db)
+version: '3.8'
+
 services:
   frontend:
     build: 
-        context: ./frontend
-        args:
-          VITE_API_BASE_URL: /api
+      context: ./Frontend
+      args:
+        VITE_API_BASE_URL: /api
+        VITE_SOCKET_URL: /
     ports:
       - "3000:80"
     depends_on:
       - backend  
 
   backend:
-    build: ./backend
+    build: ./Backend
     ports:
       - "5001:5000"
     environment:
       - PORT=5000
+      - NODE_ENV=production
+      - FRONTEND_URL=http://localhost:3000
       - DB_HOST=db
       - DB_PORT=3306
       - DB_USER=root
       - DB_PASSWORD=${DB_ROOT_PASSWORD}
       - DB_NAME=${DB_NAME}
       - JWT_SECRET=${JWT_SECRET}
+      - JWT_EXPIRES_IN=7d
       - MENU_IMAGE_DIR=/app/uploads/menu-images
+      - BOOTSTRAP_MANAGER_NAME=${BOOTSTRAP_MANAGER_NAME:-}
+      - BOOTSTRAP_MANAGER_ID=${BOOTSTRAP_MANAGER_ID:-}
+      - BOOTSTRAP_MANAGER_EMAIL=${BOOTSTRAP_MANAGER_EMAIL:-}
+      - BOOTSTRAP_MANAGER_PHONE=${BOOTSTRAP_MANAGER_PHONE:-}
+      - BOOTSTRAP_MANAGER_PASSWORD=${BOOTSTRAP_MANAGER_PASSWORD:-}
     volumes:
       - ./Frontend/public/menu-images:/app/uploads/menu-images
     depends_on:
@@ -45,4 +55,4 @@ services:
       retries: 20
 
 volumes:
-   db_data:
+  db_data:
