@@ -60,7 +60,7 @@ The primary target end-user groups for the system include:
 
 | Team Members                        | Primary Operational Responsibilities                                                                 |
 |-------------------------------------|------------------------------------------------------------------------------------------------------|
-| Chau Wai Yee & Chiu Wing Tung       | Frontend Development: Responsible for user interface design, user experience optimization, responsive layouts, and customer/manager web interfaces. |
+| Chau Wai Yee & Chung Ka Yi          | Frontend Development: Responsible for user interface design, user experience optimization, responsive layouts, and customer/manager web interfaces. |
 | Shiyu Zhang                         | Database Architecture & Analytics: Responsible for MySQL schema design, analytical backend APIs, and manager dashboard visualization components. |
 | Chiu Wing Tung                      | Business Logic Backend: Responsible for core server architecture, server-side reservation logic, order management APIs, and WebSocket integration. |
 | Wu Wing Yan                         | Backend Development: Responsible for database integration, JWT and bcrypt authentication layer for user registration & login, queue management REST APIs. |
