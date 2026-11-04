@@ -1,6 +1,8 @@
 ﻿import { useState, useMemo, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import Pagination, { usePagination } from '../components/Pagination';
+import { Link } from 'react-router-dom';
+import '../toast.css';
 
 export default function Booking() {
   const { user } = useAuth();
@@ -16,6 +18,12 @@ export default function Booking() {
   useEffect(() => {
     fetch('/api/booking/menu').then(r => r.json()).then(d => setMenuItems(Array.isArray(d) ? d : [])).catch(() => setMenuItems([]));
   }, []);
+
+  useEffect(() => {
+  if (!result) return;
+  const timer = setTimeout(() => setResult(null), result.error ? 8000 : 12000);
+  return () => clearTimeout(timer);
+}, [result]);
 
   function addPreOrderItem(item) {
     setPreOrder(prev => {
@@ -45,7 +53,7 @@ export default function Booking() {
         body: JSON.stringify({ user_id: user.user_id, booking_date: date, booking_time: time, party_size: partySize, special_request: request, pre_order: preOrder.length > 0 ? preOrder : null }),
       });
       const data = await res.json();
-      if (res.ok) { setResult({ bookingId: data.bookingId }); setPreOrder([]); }
+      if (res.ok) { setResult({ bookingId: data.bookingId, date, time, partySize }); setPreOrder([]); }
       else { setResult({ error: data.error || 'Booking failed.' }); }
     } catch { setResult({ error: 'Could not reach the server.' }); }
   }
@@ -153,9 +161,27 @@ export default function Booking() {
             </div>
           )}
         </div>
-        {result && result.error && <p className="error-text">{result.error}</p>}
-        {result && result.bookingId && <p style={{ color: 'var(--green)', fontWeight: 600 }}>Booking confirmed — #{result.bookingId}</p>}
-        <button className="btn" type="submit">Confirm Booking</button>
+        {result && (
+          <div
+            className={`app-toast ${result.error ? 'is-error' : 'is-success'}`}
+            role={result.error ? 'alert' : 'status'}
+          >
+            <span className="app-toast-icon" aria-hidden="true">{result.error ? '!' : '✓'}</span>
+            <div className="app-toast-body">
+              <strong>{result.error ? 'Booking not confirmed' : 'Booking confirmed'}</strong>
+              <p>
+                {result.error
+                  ? result.error
+                  : `Reference #${result.bookingId} · ${result.date} at ${result.time} · party of ${result.partySize}`}
+              </p>
+              {!result.error && (
+                <Link className="app-toast-link" to="/booking-management">View my bookings →</Link>
+              )}
+            </div>
+            <button type="button" className="app-toast-close" aria-label="Dismiss" onClick={() => setResult(null)}>×</button>
+          </div>
+        )}
+          <button className="btn" type="submit">Confirm Booking</button>
       </form>
     </div>
   );
