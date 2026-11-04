@@ -20,6 +20,17 @@ function getGroupRange(group) {
   return '7+ People';
 }
 
+function getRestaurantDateKey(date = new Date()) {
+  const parts = new Intl.DateTimeFormat('en-GB', {
+    timeZone: 'Asia/Hong_Kong',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).formatToParts(date);
+  const part = type => parts.find(value => value.type === type)?.value;
+  return `${part('year')}-${part('month')}-${part('day')}`;
+}
+
 export default function Queue() {
   const { user } = useAuth();
   const [partySize, setPartySize] = useState(2);
@@ -48,10 +59,11 @@ export default function Queue() {
       setAllQueue(Array.isArray(queueRes.data) ? queueRes.data : []);
       
       const entries = Array.isArray(mineRes.data) ? mineRes.data : [];
-      const active = entries.find(q => ['queued', 'called', 'serving'].includes(q.status));
-      
-      // Use local date to avoid UTC timezone bugs
-      const today = new Date().toLocaleDateString('en-CA');
+      const today = getRestaurantDateKey();
+      const active = entries.find(q =>
+        ['queued', 'called', 'serving'].includes(q.status)
+        && String(q.queue_date).slice(0, 10) === today
+      );
       
       const missed = entries.find(
         q => q.status === 'missed' && String(q.queue_date).slice(0, 10) === today
@@ -124,17 +136,16 @@ export default function Queue() {
 
   const groups = ['A', 'B', 'C'];
   
-  function getNowServing(group) {
-    // Use local date
-    const today = new Date().toLocaleDateString('en-CA');
-    
+  function getNowServing(group, queueDate = null) {
     return allQueue
-      .filter(q => getGroupLabel(q.party_size) === group && q.status === 'called' && String(q.queue_date).slice(0, 10) === today)
+      .filter(q => getGroupLabel(q.party_size) === group
+        && q.status === 'called'
+        && (!queueDate || String(q.queue_date).slice(0, 10) === String(queueDate).slice(0, 10)))
       .sort((a, b) => new Date(b.called_at) - new Date(a.called_at))[0];
   }
 
   const currentGroupCall = myEntry?.status === 'missed'
-    ? getNowServing(getGroupLabel(myEntry.party_size))
+    ? getNowServing(getGroupLabel(myEntry.party_size), myEntry.queue_date)
     : null;
   const missedNumber = Number(myEntry?.queue_number?.slice(1));
   const currentNumber = Number(currentGroupCall?.queue_number?.slice(1));
@@ -145,7 +156,7 @@ export default function Queue() {
     && missedNumber >= currentNumber - 35;
     
   const canRejoin = myEntry?.status === 'missed'
-    && myEntry.rejoin_count === 0
+    && Number(myEntry.rejoin_count || 0) === 0
     && isWithinRejoinWindow;
     
   const canJoin = !isLastOrderCutoffReached(now);
@@ -271,7 +282,7 @@ export default function Queue() {
                   : myEntry.rejoin_count > 0
                     ? 'You have already used your rejoin for this ticket.'
                     : currentGroupCall
-                      ? 'Rejoin is available when your missed number is no more than 35 numbers behind the current call.'
+                    ? 'Rejoin is available only when your missed number is at or behind the current call and no more than 35 numbers behind it.'
                       : 'Rejoin becomes available when there is a current call for your queue group.'}
               </p>
               {rejoinError && <p className="error-text">{rejoinError}</p>}

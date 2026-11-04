@@ -21,6 +21,17 @@ function isQueueGroup(group) {
   return QUEUE_GROUPS.includes(group);
 }
 
+function getRestaurantDateKey(date = new Date()) {
+  const parts = new Intl.DateTimeFormat('en-GB', {
+    timeZone: 'Asia/Hong_Kong',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).formatToParts(date);
+  const part = type => parts.find(value => value.type === type)?.value;
+  return `${part('year')}-${part('month')}-${part('day')}`;
+}
+
 function isValidPartySize(value) {
   const n = Number(value);
   return Number.isInteger(n) && n >= 1 && n <= 12;
@@ -105,7 +116,7 @@ async function join(req, res) {
   }
 
   const prefix = getGroupPrefix(partySize);
-  const today = new Date().toISOString().slice(0, 10);
+  const today = getRestaurantDateKey();
   const conn = await db.getConnection();
 
   try {
@@ -113,7 +124,7 @@ async function join(req, res) {
 
     const [existing] = await conn.query(
       `SELECT queue_id FROM queue_entries
-       WHERE user_id = ? AND DATE(joined_at) = ? AND status IN ('queued','called','serving')
+       WHERE user_id = ? AND queue_date = ? AND status IN ('queued','called','serving')
        FOR UPDATE`,
       [user_id, today]
     );
@@ -124,19 +135,19 @@ async function join(req, res) {
 
     const [missedCheck] = await conn.query(
       `SELECT COUNT(*) AS miss_count FROM queue_entries
-       WHERE user_id = ? AND DATE(joined_at) = ? AND status = 'missed'`,
+       WHERE user_id = ? AND queue_date = ? AND status = 'missed'`,
       [user_id, today]
     );
     if (missedCheck[0].miss_count >= 1) {
       await conn.rollback();
       return res.status(403).json({
-        error: 'You have already missed your turn once. Please see the manager to rejoin.',
+        error: 'You already have a missed ticket today. Use Rejoin Queue if your ticket meets the rejoin requirements.',
       });
     }
 
     const [lastRows] = await conn.query(
       `SELECT queue_number FROM queue_entries
-       WHERE DATE(joined_at) = ? AND queue_number LIKE ?
+       WHERE queue_date = ? AND queue_number LIKE ?
        ORDER BY queue_number DESC LIMIT 1 FOR UPDATE`,
       [today, `${prefix}%`]
     );
@@ -155,9 +166,9 @@ async function join(req, res) {
     const queue_number = `${prefix}${String(nextNum).padStart(3, '0')}`;
 
     const [result] = await conn.query(
-      `INSERT INTO queue_entries (user_id, party_size, queue_number, status, rejoin_count)
-       VALUES (?, ?, ?, 'queued', 0)`,
-      [user_id, partySize, queue_number]
+      `INSERT INTO queue_entries (user_id, party_size, queue_number, queue_date, status, rejoin_count)
+       VALUES (?, ?, ?, ?, 'queued', 0)`,
+      [user_id, partySize, queue_number, today]
     );
 
     await conn.commit();
@@ -227,9 +238,9 @@ async function call(req, res) {
 
     const [calledRows] = await conn.query(
       `SELECT queue_id FROM queue_entries
-       WHERE DATE(joined_at) = CURDATE() AND queue_number LIKE ? AND status = 'called'
+       WHERE queue_date = ? AND queue_number LIKE ? AND status = 'called'
        ORDER BY called_at ASC, queue_id ASC LIMIT 1 FOR UPDATE`,
-      [`${prefix}%`]
+      [getRestaurantDateKey(), `${prefix}%`]
     );
     if (calledRows.length > 0) {
       await conn.query(
@@ -420,6 +431,7 @@ async function seat(req, res) {
 async function processAutoCallGroup(group) {
   if (!isQueueGroup(group)) throw new Error(`Invalid queue group: ${group}`);
   if (isLastOrderCutoffReached()) return;
+  const queueDate = getRestaurantDateKey();
   const conn = await db.getConnection();
 
   try {
@@ -441,9 +453,9 @@ async function processAutoCallGroup(group) {
     const prefix = `${group}%`;
     const [called] = await conn.query(
       `SELECT queue_id, called_at FROM queue_entries
-       WHERE DATE(joined_at) = CURDATE() AND queue_number LIKE ? AND status = 'called'
+       WHERE queue_date = ? AND queue_number LIKE ? AND status = 'called'
        ORDER BY called_at DESC, queue_id DESC LIMIT 1 FOR UPDATE`,
-      [prefix]
+      [queueDate, prefix]
     );
 
     if (called.length) {
@@ -461,9 +473,9 @@ async function processAutoCallGroup(group) {
 
     const [waiting] = await conn.query(
       `SELECT queue_id, user_id, party_size, queue_number FROM queue_entries
-       WHERE DATE(joined_at) = CURDATE() AND queue_number LIKE ? AND status = 'queued'
+       WHERE queue_date = ? AND queue_number LIKE ? AND status = 'queued'
        ORDER BY queue_number ASC, joined_at ASC, queue_id ASC FOR UPDATE`,
-      [prefix]
+      [queueDate, prefix]
     );
 
     for (const entry of waiting) {
@@ -497,7 +509,8 @@ async function autoCallCycle() {
       await conn.beginTransaction();
       await conn.query(
         `UPDATE queue_entries SET status = 'missed', reserved_table_id = NULL
-         WHERE DATE(joined_at) = CURDATE() AND status = 'called'`
+         WHERE queue_date = ? AND status = 'called'`,
+        [getRestaurantDateKey()]
       );
       await conn.query(`UPDATE queue_auto_call_settings SET enabled = FALSE WHERE enabled = TRUE`);
       await conn.commit();
@@ -620,7 +633,7 @@ async function reissue(req, res) {
     await conn.beginTransaction();
 
     const [entry] = await conn.query(
-      `SELECT user_id, party_size, DATE(joined_at) AS queue_date
+      `SELECT user_id, party_size, DATE_FORMAT(queue_date, '%Y-%m-%d') AS queue_date
        FROM queue_entries WHERE queue_id = ? AND status = 'missed' FOR UPDATE`,
       [id]
     );
@@ -634,7 +647,7 @@ async function reissue(req, res) {
 
     const [active] = await conn.query(
       `SELECT queue_id FROM queue_entries
-       WHERE user_id = ? AND DATE(joined_at) = ? AND status IN ('queued','called','serving')`,
+       WHERE user_id = ? AND queue_date = ? AND status IN ('queued','called','serving')`,
       [user_id, queue_date]
     );
     if (active.length > 0) {
@@ -644,7 +657,7 @@ async function reissue(req, res) {
 
     const [lastRows] = await conn.query(
       `SELECT queue_number FROM queue_entries
-       WHERE DATE(joined_at) = ? AND queue_number LIKE ?
+       WHERE queue_date = ? AND queue_number LIKE ?
          AND status IN ('queued','called','serving','missed')
        ORDER BY queue_number DESC LIMIT 1 FOR UPDATE`,
       [queue_date, `${prefix}%`]
@@ -662,9 +675,9 @@ async function reissue(req, res) {
     const new_queue_number = `${prefix}${String(nextNum).padStart(3, '0')}`;
 
     const [result] = await conn.query(
-      `INSERT INTO queue_entries (user_id, party_size, queue_number, status, rejoin_count)
-       VALUES (?, ?, ?, 'queued', ?)`,
-      [user_id, party_size, new_queue_number, 1]
+      `INSERT INTO queue_entries (user_id, party_size, queue_number, queue_date, status, rejoin_count)
+       VALUES (?, ?, ?, ?, 'queued', ?)`,
+      [user_id, party_size, new_queue_number, queue_date, 1]
     );
 
     await conn.commit();
@@ -683,7 +696,7 @@ async function reissue(req, res) {
   }
 }
 
-// POST /api/queue/:id/rejoin — customer rejoins 15 numbers after current call
+// POST /api/queue/:id/rejoin — customer rejoins exactly 15 numbers after current call
 async function customerRejoin(req, res) {
   const { id } = req.params;
   const userId = req.user.user_id;
@@ -693,7 +706,8 @@ async function customerRejoin(req, res) {
     await conn.beginTransaction();
 
     const [missedRows] = await conn.query(
-      `SELECT queue_id, user_id, party_size, queue_number, DATE(joined_at) AS queue_date, rejoin_count
+      `SELECT queue_id, user_id, party_size, queue_number,
+              DATE_FORMAT(queue_date, '%Y-%m-%d') AS queue_date, rejoin_count
        FROM queue_entries
        WHERE queue_id = ? AND user_id = ? AND status = 'missed'
        FOR UPDATE`,
@@ -705,16 +719,27 @@ async function customerRejoin(req, res) {
     }
 
     const missed = missedRows[0];
-    if (missed.rejoin_count > 0) {
+    if (missed.queue_date !== getRestaurantDateKey()) {
       await conn.rollback();
-      return res.status(409).json({ error: 'This missed ticket has already been rejoined.' });
+      return res.status(409).json({ error: 'Only today’s missed ticket can rejoin the queue.' });
+    }
+
+    const [rejoinedRows] = await conn.query(
+      `SELECT queue_id FROM queue_entries
+       WHERE user_id = ? AND queue_date = ? AND rejoin_count > 0
+       LIMIT 1 FOR UPDATE`,
+      [userId, missed.queue_date]
+    );
+    if (rejoinedRows.length > 0 || missed.rejoin_count > 0) {
+      await conn.rollback();
+      return res.status(409).json({ error: 'You have already rejoined the queue today.' });
     }
 
     const prefix = getGroupPrefix(missed.party_size);
 
     const [calledRows] = await conn.query(
       `SELECT queue_number FROM queue_entries
-       WHERE DATE(joined_at) = ? AND queue_number LIKE ? AND status = 'called'
+       WHERE queue_date = ? AND queue_number LIKE ? AND status = 'called'
        ORDER BY called_at DESC, queue_id DESC LIMIT 1`,
       [missed.queue_date, `${prefix}%`]
     );
@@ -735,7 +760,7 @@ async function customerRejoin(req, res) {
 
     const [activeRows] = await conn.query(
       `SELECT queue_id FROM queue_entries
-       WHERE user_id = ? AND DATE(joined_at) = ? AND status IN ('queued','called','serving')
+       WHERE user_id = ? AND queue_date = ? AND status IN ('queued','called','serving')
        FOR UPDATE`,
       [userId, missed.queue_date]
     );
@@ -746,12 +771,14 @@ async function customerRejoin(req, res) {
 
     const [assignedRows] = await conn.query(
       `SELECT queue_number FROM queue_entries
-       WHERE DATE(joined_at) = ? AND queue_number LIKE ?`,
+       WHERE queue_date = ? AND queue_number LIKE ?`,
       [missed.queue_date, `${prefix}%`]
     );
-    const assigned = new Set(assignedRows.map(row => Number(row.queue_number.slice(1))));
+    const assigned = new Set(assignedRows
+      .filter(row => typeof row.queue_number === 'string')
+      .map(row => Number(row.queue_number.slice(1))));
 
-    let targetNumber = currentNumber + 15;
+    const targetNumber = currentNumber + 15;
     if (targetNumber > MAX_QUEUE_NUMBER) {
       await conn.rollback();
       return res.status(409).json({
@@ -759,14 +786,11 @@ async function customerRejoin(req, res) {
       });
     }
 
-    while (assigned.has(targetNumber)) {
-      targetNumber++;
-      if (targetNumber > MAX_QUEUE_NUMBER) {
-        await conn.rollback();
-        return res.status(409).json({
-          error: 'No queue number is available 15 places after the current call. Please see the manager.',
-        });
-      }
+    if (assigned.has(targetNumber)) {
+      await conn.rollback();
+      return res.status(409).json({
+        error: 'The queue number exactly 15 after the current call is already assigned. Please try again after the next call.',
+      });
     }
 
     const queueNumber = `${prefix}${String(targetNumber).padStart(3, '0')}`;
@@ -777,9 +801,9 @@ async function customerRejoin(req, res) {
     );
 
     const [result] = await conn.query(
-      `INSERT INTO queue_entries (user_id, party_size, queue_number, status, rejoin_count)
-       VALUES (?, ?, ?, 'queued', 1)`,
-      [userId, missed.party_size, queueNumber]
+      `INSERT INTO queue_entries (user_id, party_size, queue_number, queue_date, status, rejoin_count)
+       VALUES (?, ?, ?, ?, 'queued', 1)`,
+      [userId, missed.party_size, queueNumber, missed.queue_date]
     );
 
     await conn.commit();
