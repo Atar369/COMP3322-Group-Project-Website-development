@@ -20,7 +20,55 @@ A restaurant queuing, table booking, and ordering web app for a single virtual r
 └── .env.example
 ```
 
-## Run with Docker Compose (recommended)
+## Deployment & Server Configuration (COMP3322)
+
+This project is configured and deployed on the assigned HKU CS project server (**Group 04**). Following the course instructions, we have chosen **Option B (HTTP on Port 80)** for public access within the HKUVPN network.
+
+### Server Link
+* **Production URL:** [http://c3322-pg04.cs.hku.hk](http://c3322-pg04.cs.hku.hk)
+* *Note: This URL is strictly accessible only when connected to the HKUVPN.*
+
+---
+
+### Network & Port Architecture
+
+Since the school's external firewall restricts traffic exclusively to standard ports, the services have been mapped to utilize standard port interactions safely behind Docker:
+
+| Service | Container Internal Port | Host External Port | Accessibility / Purpose |
+| :--- | :--- | :--- | :--- |
+| **Frontend (Vite)** | `3000` | `80` | **Public Web Traffic** (Accessible via HKUVPN) |
+| **Backend (Express)** | `5000` | `5001` | **Internal Proxy/API** (Proxied via Vite `/api`) |
+| **Database (MySQL)** | `3306` | *None* | **Isolated Internal Network Only** (Secure, No Port Published) |
+
+---
+
+### Local Production Setup & Execution
+
+To seamlessly deploy and start the application stacking on the container host, execute the following workflow sequence from the root directory:
+
+1. **Permission Alignment & Reset:**
+   Ensure the host's runtime mapping allows Docker execution context accessibility to internal project modules:
+   ```bash
+   chmod -R 755 ~/COMP3322-Group-Project-Website-development
+   ```
+
+2. **Clean Container Environment Initialization:**
+   To drop any conflicting active volumes or overlapping configurations, completely cycle the network composition:
+   ```bash
+   docker compose down -v
+   ```
+
+3. **Production Build & Launch:**
+   Compile the respective production components and service arguments dynamically on background context:
+   ```bash
+   docker compose up -d --build
+   ```
+
+### Operational Resource Management Reminders
+* **Storage Pruning:** Due to strict host environment boundaries (8.6 GB disk cap), the local repository structure maintains a clean automated build architecture. Run `docker image prune -a -f` and `docker builder prune -f` regularly to prevent deployment lockups.
+* **API Rate Control:** All outbound API streams strictly abide by HKU ITS compliance; endpoint communication uses loop-guards to guarantee server stability prior to grading.
+
+## Local run with Docker Compose 
 
 Requirements: Docker and the Docker Compose plugin.
 

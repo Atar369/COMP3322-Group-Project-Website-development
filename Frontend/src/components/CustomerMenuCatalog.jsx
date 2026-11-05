@@ -9,8 +9,8 @@ import Pagination, { usePagination } from './Pagination';
 
 const FOOD_TYPES = ['Starter', 'Main', 'Side', 'Dessert', 'Beverage'];
 
-const API_BASE = import.meta.env.VITE_API_BASE_URL
-  ? import.meta.env.VITE_API_BASE_URL.replace('/api', '')
+const API_BASE = import.meta.env.VITE_API_BASE_URL 
+  ? import.meta.env.VITE_API_BASE_URL 
   : 'http://localhost:5000';
 
 function getFoodType(category = '') {
