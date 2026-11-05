@@ -1,5 +1,7 @@
 # The Kitchen Ledger
 
+> **Deployment URL:** [http://c3322-pg04.cs.hku.hk](http://c3322-pg04.cs.hku.hk)
+> 
 A restaurant queuing, table booking, and ordering web app for a single virtual restaurant. Customers can browse the menu, place orders, join the queue, and book tables. Managers can manage the menu, orders, queue, and bookings, and view a sales dashboard.
 
 ## Tech stack
