@@ -5,6 +5,10 @@ import { Link } from 'react-router-dom';
 import '../toast.css';
 import { getRestaurantTomorrowDateKey } from '../utils/restaurantTime';
 
+const API_BASE = import.meta.env.VITE_API_BASE_URL 
+  ? import.meta.env.VITE_API_BASE_URL 
+  : 'http://localhost:5000';
+
 export default function Booking() {
   const { user } = useAuth();
   const [date, setDate] = useState('');
@@ -104,7 +108,7 @@ export default function Booking() {
                   </div>
                   {item.image_url && (
                     <img
-                      src={item.image_url}
+                      src={item.image_url.startsWith('http') ? item.image_url : `${API_BASE}${item.image_url}`}
                       alt={item.name}
                       onError={event => { event.currentTarget.style.display = 'none'; }}
                     />
