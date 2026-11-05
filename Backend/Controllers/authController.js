@@ -16,8 +16,8 @@ const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 function cookieOptions() {
   return {
     httpOnly: true,
-    sameSite: IS_PROD ? 'strict' : 'lax',
-    secure: IS_PROD,
+    sameSite: 'lax',
+    secure: false, // Set to true if using HTTPS in production, but we are using HTTP in development
     path: '/',
     maxAge: 7 * 24 * 60 * 60 * 1000,
   };

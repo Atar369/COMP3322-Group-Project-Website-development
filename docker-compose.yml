@@ -8,7 +8,7 @@ services:
         VITE_API_BASE_URL: /api
         VITE_SOCKET_URL: /
     ports:
-      - "3000:80"
+      - "80:80"
     depends_on:
       - backend  
 
@@ -19,7 +19,7 @@ services:
     environment:
       - PORT=5000
       - NODE_ENV=production
-      - FRONTEND_URL=http://localhost:3000
+      - FRONTEND_URL=http://c3322-pg04.cs.hku.hk
       - DB_HOST=db
       - DB_PORT=3306
       - DB_USER=root
