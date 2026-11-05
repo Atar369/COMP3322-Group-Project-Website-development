@@ -2,6 +2,7 @@ import { Link } from 'react-router-dom';
 import { useState, useEffect, useMemo } from 'react';
 import { useAuth } from '../context/AuthContext';
 import Pagination, { usePagination } from '../components/Pagination';
+import { compareBookingDateTime } from '../utils/restaurantTime';
 
 export default function BookingManagement() {
   const { user } = useAuth();
@@ -158,9 +159,11 @@ export default function BookingManagement() {
         && (!bookingFilters.partySize || Number(booking.party_size) === Number(bookingFilters.partySize))
         && (!term || searchable.some(value => value.toLowerCase().includes(term)));
     }).sort((a, b) => {
-      const timeA = new Date(`${String(a.booking_date).slice(0, 10)}T${String(a.booking_time || '').slice(0, 5)}`).getTime();
-      const timeB = new Date(`${String(b.booking_date).slice(0, 10)}T${String(b.booking_time || '').slice(0, 5)}`).getTime();
-      return sortBy === 'latest' ? timeB - timeA : timeA - timeB;
+      const comparison = compareBookingDateTime(
+        { date: a.booking_date, time: a.booking_time },
+        { date: b.booking_date, time: b.booking_time }
+      );
+      return sortBy === 'latest' ? -comparison : comparison;
     });
   }, [userBookings, search, bookingFilters, sortBy]);
   const bookingsPagination = usePagination(filteredBookings, `${JSON.stringify(bookingFilters)}|${search}|${sortBy}`);

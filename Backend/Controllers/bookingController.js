@@ -1,6 +1,7 @@
 const db = require("../db")
 const { isCheckInWindowOpen } = require('../utils/bookingAttendance');
 const { isValidDate, isValidTime, isValidPartySize } = require('../utils/validators');
+const { isAtLeastRestaurantTomorrow } = require('../utils/restaurantTime');
 
 async function markExpiredBookingsNoShow() {
   await db.query(
@@ -41,13 +42,7 @@ async function create(request, response) {
     return response.status(400).json({error: "Last entry is 21:00. No bookings accepted after 21:00."});
   }
 
-  const td = new Date();
-  td.setHours(0, 0, 0, 0);
-  const tmr = new Date(td);
-  tmr.setDate(tmr.getDate() + 1);
-  const bookingDate = new Date(booking_date);
-  bookingDate.setHours(0, 0, 0, 0);
-  if (bookingDate < tmr) {
+  if (!isAtLeastRestaurantTomorrow(booking_date)) {
     return response.status(400).json({error: "Bookings must be made at least one day in advance."});
   }
 
@@ -158,8 +153,13 @@ async function listByUser(request, response) {
   const { user_id } = request.params;
   try {
     const [rows] = await db.query(
-      `SELECT booking_id, user_id, table_id, booking_date, booking_time, party_size, status, special_request, pre_order, served_at
-       FROM bookings WHERE user_id = ? ORDER BY booking_date DESC, booking_time DESC`,
+      `SELECT b.booking_id, b.user_id, b.table_id, t.table_number,
+              b.booking_date, b.booking_time, b.party_size, b.status,
+              b.special_request, b.pre_order, b.served_at
+       FROM bookings b
+       JOIN restaurant_tables t ON t.table_id = b.table_id
+       WHERE b.user_id = ?
+       ORDER BY b.booking_date DESC, b.booking_time DESC`,
       [user_id]
     );
     return response.json(rows);
@@ -254,16 +254,11 @@ async function edit(request, response) {
     return response.status(400).json({error: "Please fill in all required booking fields."});
   }
 
-  const td = new Date();
-  td.setHours(0, 0, 0, 0);
+  if (!isValidDate(booking_date) || !isValidTime(booking_time)) {
+    return response.status(400).json({error: "Invalid booking date or time."});
+  }
 
-  const tmr = new Date(td);
-  tmr.setDate(tmr.getDate() + 1);
-
-  const bookingDate = new Date(booking_date);
-  bookingDate.setHours(0, 0, 0, 0);
-
-  if (bookingDate < tmr) {
+  if (!isAtLeastRestaurantTomorrow(booking_date)) {
     return response.status(400).json({error: "Bookings must be made at least one day in advance."});
   }
 

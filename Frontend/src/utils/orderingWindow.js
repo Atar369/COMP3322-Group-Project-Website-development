@@ -1,3 +1,5 @@
+import { getRestaurantTimestamp } from './restaurantTime';
+
 export const ORDER_WINDOW_MS = 45 * 60 * 1000;
 const RESTAURANT_TIME_ZONE = 'Asia/Hong_Kong';
 
@@ -39,7 +41,7 @@ export function formatQueueCallingCountdown(remainingMs) {
 }
 
 export function getOrderWindowStatus(servedAt, now = Date.now()) {
-  const servedTime = new Date(servedAt).getTime();
+  const servedTime = getRestaurantTimestamp(servedAt);
   if (!Number.isFinite(servedTime) || servedTime > now) {
     return { remainingMs: 0, ended: true };
   }

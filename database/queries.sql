@@ -5,9 +5,12 @@ USE restaurant_app;
 SET @customer_id = 1;
 SET @order_id = 1;
 SET @table_id = 3;
-SET @booking_date = CURDATE() + INTERVAL 1 DAY;
+SET @hk_today = DATE(UTC_TIMESTAMP() + INTERVAL 8 HOUR);
+SET @utc_today_start = TIMESTAMP(@hk_today, '00:00:00') - INTERVAL 8 HOUR;
+SET @utc_tomorrow_start = @utc_today_start + INTERVAL 1 DAY;
+SET @booking_date = @hk_today + INTERVAL 1 DAY;
 SET @booking_time = '18:00:00';
-SET @selected_date = CURDATE();
+SET @selected_date = @hk_today;
 SET @selected_time = '19:00:00';
 SET @party_size = 4;
 
@@ -34,8 +37,8 @@ ORDER BY oi.order_item_id;
 -- 4. Total paid order value for orders placed today
 SELECT COALESCE(SUM(total_amount), 0.00) AS todays_order_date_revenue
 FROM orders
-WHERE order_time >= CURDATE()
-  AND order_time < CURDATE() + INTERVAL 1 DAY
+WHERE order_time >= @utc_today_start
+  AND order_time < @utc_tomorrow_start
   AND payment_status = 'paid'
   AND status <> 'cancelled';
 
@@ -46,8 +49,8 @@ SELECT mi.item_id, mi.name,
 FROM menu_items AS mi
 LEFT JOIN order_items AS oi ON oi.item_id = mi.item_id
 LEFT JOIN orders AS o ON o.order_id = oi.order_id
-  AND o.order_time >= CURDATE()
-  AND o.order_time < CURDATE() + INTERVAL 1 DAY
+  AND o.order_time >= @utc_today_start
+  AND o.order_time < @utc_tomorrow_start
 GROUP BY mi.item_id, mi.name
 ORDER BY mi.item_id;
 
@@ -62,22 +65,22 @@ ORDER BY quantity_sold DESC, mi.item_id
 LIMIT 5;
 
 -- 7. Number of orders placed each hour today
-SELECT HOUR(order_time) AS order_hour, COUNT(*) AS order_count
+SELECT HOUR(DATE_ADD(order_time, INTERVAL 8 HOUR)) AS order_hour, COUNT(*) AS order_count
 FROM orders
-WHERE order_time >= CURDATE()
-  AND order_time < CURDATE() + INTERVAL 1 DAY
+WHERE order_time >= @utc_today_start
+  AND order_time < @utc_tomorrow_start
   AND status <> 'cancelled'
-GROUP BY HOUR(order_time)
+GROUP BY HOUR(DATE_ADD(order_time, INTERVAL 8 HOUR))
 ORDER BY order_hour;
 
 -- 8. Find the busiest order hour(s) today
 WITH hourly_counts AS (
-  SELECT HOUR(order_time) AS order_hour, COUNT(*) AS order_count
+  SELECT HOUR(DATE_ADD(order_time, INTERVAL 8 HOUR)) AS order_hour, COUNT(*) AS order_count
   FROM orders
-  WHERE order_time >= CURDATE()
-    AND order_time < CURDATE() + INTERVAL 1 DAY
+  WHERE order_time >= @utc_today_start
+    AND order_time < @utc_tomorrow_start
     AND status <> 'cancelled'
-  GROUP BY HOUR(order_time)
+  GROUP BY HOUR(DATE_ADD(order_time, INTERVAL 8 HOUR))
 ), ranked_hours AS (
   SELECT order_hour, order_count,
          DENSE_RANK() OVER (ORDER BY order_count DESC) AS volume_rank
@@ -95,7 +98,7 @@ SELECT ROW_NUMBER() OVER (ORDER BY qe.joined_at, qe.queue_id) AS queue_position,
 FROM queue_entries AS qe
 JOIN users AS u ON u.user_id = qe.user_id
 WHERE qe.status = 'queued'
-  AND qe.queue_date = CURDATE()
+  AND qe.queue_date = @hk_today
 ORDER BY qe.joined_at, qe.queue_id;
 
 -- 10. Check if a table is booked at a given time
@@ -114,7 +117,7 @@ SELECT b.booking_id, b.booking_time, rt.table_number,
 FROM bookings AS b
 JOIN restaurant_tables AS rt ON rt.table_id = b.table_id
 JOIN users AS u ON u.user_id = b.user_id
-WHERE b.booking_date = CURDATE()
+WHERE b.booking_date = @hk_today
 ORDER BY b.booking_time, rt.table_number;
 
 -- 12. Show active kitchen orders
@@ -142,7 +145,7 @@ ORDER BY rt.table_number;
 -- 14. Count waiting groups by party size
 SELECT party_size, COUNT(*) AS groups_waiting
 FROM queue_entries
-WHERE status = 'queued' AND queue_date = CURDATE()
+WHERE status = 'queued' AND queue_date = @hk_today
 GROUP BY party_size
 ORDER BY party_size;
 
@@ -168,7 +171,7 @@ SELECT rt.table_id, rt.table_number, rt.capacity,
           )) AS bookable_at_exact_slot,
        (SELECT COUNT(*) FROM queue_entries AS qe
         WHERE qe.status = 'queued'
-          AND qe.queue_date = CURDATE()
+          AND qe.queue_date = @hk_today
           AND qe.party_size <= rt.capacity) AS waiting_groups_fitting_capacity
 FROM restaurant_tables AS rt
 ORDER BY rt.table_number;

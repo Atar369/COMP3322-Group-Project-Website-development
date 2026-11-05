@@ -106,8 +106,9 @@ After:  "Orders & Cart" page with horizontal cards and accumulated unpaid totals
 
 #### 4. **Missed Ticket Rejoin**
 - Customer can rejoin when their missed ticket is no more than 35 queue numbers behind the current call in their A/B/C group.
-- Rejoin is limited to once per missed ticket.
-- The new ticket uses the exact number 15 after the current call; if it is already assigned, the customer is asked to try after the next call.
+- Customers can rejoin at most once per day.
+- Before confirming, the customer sees the next unused number at the back of their group’s queue and how many active groups are ahead.
+- Ticket numbers are not reused, including numbers from cancelled, missed, or completed tickets; if the queue changes before confirmation, the customer must review the updated preview.
 
 ---
 

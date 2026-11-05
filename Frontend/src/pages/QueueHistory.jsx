@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { useAuth } from '../context/AuthContext';
 import api from '../services/api';
 import Pagination, { usePagination } from '../components/Pagination';
+import { formatRestaurantDateTime, getRestaurantDateForTimestamp, getRestaurantTimestamp } from '../utils/restaurantTime';
 
 const STATUS_LABELS = {
   queued: 'Queuing', called: 'Called', serving: 'Seated', finished: 'Finished',
@@ -20,8 +21,8 @@ function groupForPartySize(size) {
 
 function formatDateTime(value) {
   if (!value) return '—';
-  const normalized = String(value).replace('T', ' ');
-  return `${normalized.slice(0, 10)} ${normalized.slice(11, 16)}`;
+  if (!String(value).includes(':')) return String(value).slice(0, 10);
+  return formatRestaurantDateTime(value);
 }
 
 export default function QueueHistory() {
@@ -50,7 +51,9 @@ export default function QueueHistory() {
     return entries.filter(entry => {
       const number = String(entry.queue_number || entry.queue_id);
       const group = groupForPartySize(Number(entry.party_size));
-      const date = String(entry.joined_at || entry.queue_date || '').slice(0, 10);
+      const date = entry.joined_at
+        ? getRestaurantDateForTimestamp(entry.joined_at)
+        : String(entry.queue_date || '').slice(0, 10);
       const status = normalizeStatus(entry.status);
       const searchValues = [number, group.toLowerCase(), status, date, String(entry.party_size)];
       return (!filters.status || status === filters.status)
@@ -59,9 +62,11 @@ export default function QueueHistory() {
         && (!filters.partyGroup || group === filters.partyGroup)
         && (!term || searchValues.some(value => value.toLowerCase().includes(term)));
     }).sort((a, b) => {
-      if (sortBy === 'oldest') return new Date(a.joined_at || a.queue_date) - new Date(b.joined_at || b.queue_date);
+      const timeA = a.joined_at ? getRestaurantTimestamp(a.joined_at) : Date.parse(`${a.queue_date}T00:00:00Z`);
+      const timeB = b.joined_at ? getRestaurantTimestamp(b.joined_at) : Date.parse(`${b.queue_date}T00:00:00Z`);
+      if (sortBy === 'oldest') return timeA - timeB;
       if (sortBy === 'queueId') return String(a.queue_number || '').localeCompare(String(b.queue_number || ''));
-      return new Date(b.joined_at || b.queue_date) - new Date(a.joined_at || a.queue_date);
+      return timeB - timeA;
     });
   }, [entries, filters, search, sortBy]);
   const pagination = usePagination(filteredEntries, `${JSON.stringify(filters)}|${search}|${sortBy}`);

@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { useAuth } from '../context/AuthContext';
 import api from '../services/api';
 import Pagination, { usePagination } from '../components/Pagination';
+import { compareBookingDateTime } from '../utils/restaurantTime';
 
 const STATUS_LABELS = {
   booked: 'Booked', serving: 'Serving', finished: 'Finished', paid: 'Paid',
@@ -49,9 +50,11 @@ export default function BookingHistory() {
         && (!filters.partySize || Number(booking.party_size) === Number(filters.partySize))
         && (!term || values.some(value => value.toLowerCase().includes(term)));
     }).sort((a, b) => {
-      const dateA = new Date(`${String(a.booking_date).slice(0, 10)}T${String(a.booking_time || '').slice(0, 5)}`);
-      const dateB = new Date(`${String(b.booking_date).slice(0, 10)}T${String(b.booking_time || '').slice(0, 5)}`);
-      return sortBy === 'oldest' ? dateA - dateB : dateB - dateA;
+      const comparison = compareBookingDateTime(
+        { date: a.booking_date, time: a.booking_time },
+        { date: b.booking_date, time: b.booking_time }
+      );
+      return sortBy === 'oldest' ? comparison : -comparison;
     });
   }, [userBookings, filters, search, sortBy]);
   const pagination = usePagination(bookings, `${JSON.stringify(filters)}|${search}|${sortBy}`);

@@ -5,6 +5,7 @@ import { useCart } from '../context/CartContext';
 import api from '../services/api';
 import { formatOrderWindowCountdown, getOrderWindowStatus, isLastOrderCutoffReached } from '../utils/orderingWindow';
 import Pagination, { usePagination } from '../components/Pagination';
+import { formatRestaurantDateTime, formatRestaurantTime } from '../utils/restaurantTime';
 
 function useNow() {
   const [now, setNow] = useState(Date.now());
@@ -143,13 +144,25 @@ export default function OrderManagement() {
   const cardsByKey = new Map();
   for (const booking of bookings) {
     const key = `table-${booking.table_id}`;
-    const card = cardsByKey.get(key) || { key, tableId: booking.table_id, bookings: [], queues: [] };
+    const card = cardsByKey.get(key) || {
+      key,
+      tableId: booking.table_id,
+      tableNumber: booking.table_number,
+      bookings: [],
+      queues: [],
+    };
     card.bookings.push(booking);
     cardsByKey.set(key, card);
   }
   for (const queue of queues) {
     const key = `queue-${queue.queue_id}`;
-    cardsByKey.set(key, { key, tableId: null, bookings: [], queues: [queue] });
+    cardsByKey.set(key, {
+      key,
+      tableId: null,
+      tableNumber: queue.table_number || queue.assigned_table_number,
+      bookings: [],
+      queues: [queue],
+    });
   }
 
   const cards = [...cardsByKey.values()];
@@ -196,7 +209,11 @@ export default function OrderManagement() {
           return (
             <div key={card.key} className="order-card orders-cart-card">
               <div className="orders-cart-primary">
-                <strong>{card.tableId !== null ? `Table ${card.tableId}` : `Queue #${cardQueues[0]?.queue_id}`}</strong>
+                <strong>
+                  {card.tableNumber
+                    ? `Table ${card.tableNumber}`
+                    : `Queue #${cardQueues[0]?.queue_number || cardQueues[0]?.queue_id}`}
+                </strong>
                 {ordersError
                   ? <span className="orders-cart-order">Order details unavailable</span>
                   : ordersLoading
@@ -213,13 +230,19 @@ export default function OrderManagement() {
               <div className="orders-cart-details">
                 {cardBookings.map(b => (
                   <div key={`booking-${b.booking_id}`}>
-                    {b.booking_date?.slice(0, 10)} {b.booking_time?.slice(0, 5)} · Party of {b.party_size}
+                    {b.status === 'serving'
+                      ? `Seated at ${formatRestaurantDateTime(b.served_at)}`
+                      : `${b.booking_date?.slice(0, 10)} ${b.booking_time?.slice(0, 5)}`}
+                    {' · '}Party of {b.party_size}
                     {b.special_request && <div className="orders-cart-request">"{b.special_request}"</div>}
                   </div>
                 ))}
                 {cardQueues.map(q => (
                   <div key={`queue-${q.queue_id}`}>
-                    Joined {q.joined_at?.slice(11, 16)} · Party of {q.party_size}
+                    {q.status === 'serving'
+                      ? `Seated at ${formatRestaurantDateTime(q.served_at)}`
+                      : `Joined ${formatRestaurantTime(q.joined_at)}`}
+                    {' · '}Party of {q.party_size}
                   </div>
                 ))}
               </div>

@@ -11,6 +11,7 @@ export default function ManagerDashboard() {
     weekday: 'long',
     day: 'numeric',
     month: 'long',
+    timeZone: 'Asia/Hong_Kong',
   }).format(new Date());
 
   return (

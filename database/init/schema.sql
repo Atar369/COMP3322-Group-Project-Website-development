@@ -130,7 +130,7 @@ CREATE TABLE queue_entries (
   user_id INT UNSIGNED NOT NULL,
   party_size INT UNSIGNED NOT NULL,
   queue_number VARCHAR(5) NULL,
-  queue_date DATE NOT NULL DEFAULT (CURDATE()),
+  queue_date DATE NOT NULL,
   joined_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   status VARCHAR(9) NOT NULL DEFAULT 'queued',
   table_id INT UNSIGNED NULL,

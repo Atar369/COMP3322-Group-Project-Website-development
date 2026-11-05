@@ -3,6 +3,7 @@ import { useAuth } from '../context/AuthContext';
 import Pagination, { usePagination } from '../components/Pagination';
 import { Link } from 'react-router-dom';
 import '../toast.css';
+import { getRestaurantTomorrowDateKey } from '../utils/restaurantTime';
 
 export default function Booking() {
   const { user } = useAuth();
@@ -58,7 +59,7 @@ export default function Booking() {
     } catch { setResult({ error: 'Could not reach the server.' }); }
   }
 
-  const tomorrowStr = (() => { const d = new Date(); d.setDate(d.getDate() + 1); return d.toISOString().slice(0, 10); })();
+  const tomorrowStr = getRestaurantTomorrowDateKey();
   const allowedTimes = ['10:00','10:30','11:00','11:30','12:00','12:30','13:00','13:30','14:00','14:30','17:00','17:30','18:00','18:30','19:00','19:30','20:00','20:30','21:00'];
 
   return (

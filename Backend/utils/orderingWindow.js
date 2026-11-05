@@ -1,5 +1,6 @@
 const ORDER_WINDOW_MS = 45 * 60 * 1000;
 const RESTAURANT_TIME_ZONE = 'Asia/Hong_Kong';
+const { parseUtcDateTime } = require('./restaurantTime');
 
 function isLastOrderCutoffReached(now = new Date()) {
   const parts = new Intl.DateTimeFormat('en-GB', {
@@ -13,7 +14,7 @@ function isLastOrderCutoffReached(now = new Date()) {
 }
 
 function isOrderWindowOpen(servedAt, now = Date.now()) {
-  const servedTime = new Date(servedAt).getTime();
+  const servedTime = parseUtcDateTime(servedAt);
   return Number.isFinite(servedTime)
     && servedTime <= now
     && now - servedTime < ORDER_WINDOW_MS;

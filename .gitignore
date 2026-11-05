@@ -14,3 +14,6 @@ Backend/node_modules/
 *.log
 .DS_Store
 .vscode/
+
+# public SSH keys
+id_rsa.pub

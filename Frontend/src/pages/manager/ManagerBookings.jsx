@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo, useCallback } from 'react';
 import api from '../../services/api';
 import { isBookingCheckInAvailable } from '../../utils/bookingCheckIn';
 import Pagination, { usePagination } from '../../components/Pagination';
+import { compareBookingDateTime, formatRestaurantTime, getRestaurantTimestamp } from '../../utils/restaurantTime';
 
 const BOOKING_FILTERS = ['booked', 'seated', 'cancelled', 'no_show'];
 const STATUS_LABEL = { booked: 'Booked', serving: 'Serving', finished: 'Finished', paid: 'Paid', cancelled: 'Cancelled', no_show: 'No show' };
@@ -66,14 +67,14 @@ export default function ManagerBookings() {
     const interval = setInterval(() => {
       bookings.forEach(booking => {
         if (booking.status === 'serving' && booking.served_at
-          && Date.now() - new Date(booking.served_at).getTime() >= ONE_HOUR_MS) {
+          && Date.now() - getRestaurantTimestamp(booking.served_at) >= ONE_HOUR_MS) {
           api.patch(`/booking/${booking.booking_id}/finish`).then(() => {
             setNotifications(previous => {
               if (previous.some(notification => notification.id === booking.booking_id)) return previous;
               return [...previous, {
                 id: booking.booking_id,
                 msg: `Booking #${booking.booking_id} (Table #${booking.table_number}) — 1 hour elapsed. Please collect payment.`,
-                time: new Date().toLocaleTimeString(),
+                time: formatRestaurantTime(new Date()),
               }];
             });
             load();
@@ -113,12 +114,14 @@ export default function ManagerBookings() {
         && searchMatches;
     })
     .sort((a, b) => {
-      const timeA = new Date(`${bookingDate(a)}T${bookingTime(a)}`).getTime();
-      const timeB = new Date(`${bookingDate(b)}T${bookingTime(b)}`).getTime();
-      if (sortBy === 'latest') return timeB - timeA;
+      const comparison = compareBookingDateTime(
+        { date: bookingDate(a), time: bookingTime(a) },
+        { date: bookingDate(b), time: bookingTime(b) }
+      );
+      if (sortBy === 'latest') return -comparison;
       if (sortBy === 'partyLarge') return Number(b.party_size) - Number(a.party_size);
       if (sortBy === 'table') return Number(a.table_number || a.table_id) - Number(b.table_number || b.table_id);
-      return timeA - timeB;
+      return comparison;
     }), [bookings, filters, search, sortBy]);
   const pagination = usePagination(filtered, `${JSON.stringify(filters)}|${search}|${sortBy}`);
 
@@ -154,7 +157,7 @@ export default function ManagerBookings() {
 
   function getTimeRemaining(servedAt) {
     if (!servedAt) return null;
-    const remaining = ONE_HOUR_MS - (Date.now() - new Date(servedAt).getTime());
+    const remaining = ONE_HOUR_MS - (Date.now() - getRestaurantTimestamp(servedAt));
     if (remaining <= 0) return 'Time up';
     const minutes = Math.floor(remaining / 60000);
     const hours = Math.floor(minutes / 60);

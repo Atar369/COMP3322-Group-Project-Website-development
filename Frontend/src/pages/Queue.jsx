@@ -1,4 +1,4 @@
-﻿import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useAuth } from '../context/AuthContext';
 import api from '../services/api';
 import { socket } from '../socket';
@@ -7,6 +7,11 @@ import {
   getQueueCallingCountdown,
   isLastOrderCutoffReached,
 } from '../utils/orderingWindow';
+import {
+  formatRestaurantTime,
+  getRestaurantDateKey,
+  getRestaurantTimestamp,
+} from '../utils/restaurantTime';
 import '../queue.css';
 
 function getGroupLabel(size) {
@@ -19,17 +24,6 @@ function getGroupRange(group) {
   if (group === 'A') return '1–2 People';
   if (group === 'B') return '3–6 People';
   return '7+ People';
-}
-
-function getRestaurantDateKey(date = new Date()) {
-  const parts = new Intl.DateTimeFormat('en-GB', {
-    timeZone: 'Asia/Hong_Kong',
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-  }).formatToParts(date);
-  const part = type => parts.find(value => value.type === type)?.value;
-  return `${part('year')}-${part('month')}-${part('day')}`;
 }
 
 // --- Display-only helpers (no effect on queue logic) ---
@@ -61,10 +55,16 @@ export default function Queue() {
   const [myEntry, setMyEntry] = useState(null);
   const [allQueue, setAllQueue] = useState([]);
   const [joinError, setJoinError] = useState('');
+  const [joinMessage, setJoinMessage] = useState('');
+  const [queueActionError, setQueueActionError] = useState('');
   const [rejoinError, setRejoinError] = useState('');
+  const [rejoinPreview, setRejoinPreview] = useState(null);
+  const [isPreviewingRejoin, setIsPreviewingRejoin] = useState(false);
   const [isRejoining, setIsRejoining] = useState(false);
+  const [isLeaving, setIsLeaving] = useState(false);
   const [calledBanner, setCalledBanner] = useState(null);
   const [now, setNow] = useState(new Date());
+  const queueRequestVersion = useRef(0);
 
   // Timer for the 21:00 cutoff countdown
   useEffect(() => {
@@ -75,11 +75,13 @@ export default function Queue() {
   // Fetch Queue Data
   const loadAll = useCallback(async () => {
     if (!user) return;
+    const requestVersion = ++queueRequestVersion.current;
     try {
       const [queueRes, mineRes] = await Promise.all([
         api.get('/queue'),
         api.get(`/queue/user/${user.user_id}`),
       ]);
+      if (requestVersion !== queueRequestVersion.current) return;
       setAllQueue(Array.isArray(queueRes.data) ? queueRes.data : []);
 
       const entries = Array.isArray(mineRes.data) ? mineRes.data : [];
@@ -125,6 +127,7 @@ export default function Queue() {
 
   async function handleJoin() {
     setJoinError('');
+    setJoinMessage('');
     if (isLastOrderCutoffReached(now)) {
       setJoinError('The restaurant stops accepting new queue entries at 21:00. Please try again tomorrow.');
       return;
@@ -139,20 +142,61 @@ export default function Queue() {
 
   async function handleLeave() {
     if (!myEntry) return;
-    await api.patch(`/queue/${myEntry.queue_id}/cancel`);
-    setMyEntry(null);
-    loadAll();
+    setIsLeaving(true);
+    setQueueActionError('');
+    setJoinError('');
+    setJoinMessage('');
+    try {
+      await api.patch(`/queue/${myEntry.queue_id}/cancel`);
+      queueRequestVersion.current += 1;
+      setPartySize(Number(myEntry.party_size));
+      setMyEntry(null);
+      setJoinMessage('You have left the queue. Choose a party size and select “Get queue number” to join again; no new ticket has been issued.');
+    } catch (err) {
+      setQueueActionError(err.response?.data?.error || 'Could not leave the queue. Please try again.');
+      setIsLeaving(false);
+      return;
+    }
+
+    try {
+      const response = await api.get('/queue');
+      setAllQueue(Array.isArray(response.data) ? response.data : []);
+    } catch {
+      setQueueActionError('You left the queue, but the public queue board could not be refreshed.');
+    } finally {
+      setIsLeaving(false);
+    }
+  }
+
+  async function handleRejoinPreview() {
+    if (!myEntry || myEntry.status !== 'missed') return;
+    setRejoinError('');
+    setRejoinPreview(null);
+    setIsPreviewingRejoin(true);
+    try {
+      const response = await api.get(`/queue/${myEntry.queue_id}/rejoin-preview`);
+      setRejoinPreview(response.data);
+    } catch (err) {
+      setRejoinError(err.response?.data?.error || 'Could not check your rejoin position.');
+    } finally {
+      setIsPreviewingRejoin(false);
+    }
   }
 
   async function handleRejoin() {
-    if (!myEntry || myEntry.status !== 'missed') return;
+    if (!myEntry || myEntry.status !== 'missed' || !rejoinPreview) return;
     setRejoinError('');
     setIsRejoining(true);
     try {
-      await api.post(`/queue/${myEntry.queue_id}/rejoin`);
+      await api.post(`/queue/${myEntry.queue_id}/rejoin`, {
+        queue_number: rejoinPreview.queueNumber,
+        groups_ahead: rejoinPreview.groupsAhead,
+      });
+      setRejoinPreview(null);
       await loadAll();
     } catch (err) {
       setRejoinError(err.response?.data?.error || 'Could not rejoin the queue.');
+      setRejoinPreview(null);
     } finally {
       setIsRejoining(false);
     }
@@ -165,7 +209,7 @@ export default function Queue() {
       .filter(q => getGroupLabel(q.party_size) === group
         && q.status === 'called'
         && (!queueDate || String(q.queue_date).slice(0, 10) === String(queueDate).slice(0, 10)))
-      .sort((a, b) => new Date(b.called_at) - new Date(a.called_at))[0];
+      .sort((a, b) => getRestaurantTimestamp(b.called_at) - getRestaurantTimestamp(a.called_at))[0];
   }
 
   const currentGroupCall = myEntry?.status === 'missed'
@@ -291,6 +335,7 @@ export default function Queue() {
           </p>
 
           {joinError && <p className="error-text">{joinError}</p>}
+          {joinMessage && <p className="queue-join-text" role="status">{joinMessage}</p>}
           <button type="button" className="queue-primary-btn" onClick={handleJoin} disabled={!canJoin}>
             Get queue number →
           </button>
@@ -341,7 +386,7 @@ export default function Queue() {
                 </p>
                 <p className="queue-missed-note">
                   {canRejoin
-                    ? 'Your missed number is within 35 numbers of the current call. Rejoining gives you the number exactly 15 after the current call.'
+                    ? 'Your missed number is within 35 numbers of the current call. You can rejoin once with the next available number at the back of your group’s queue.'
                     : myEntry.rejoin_count > 0
                       ? 'You have already used your rejoin for this ticket.'
                       : currentGroupCall
@@ -349,14 +394,41 @@ export default function Queue() {
                         : 'Rejoin becomes available when there is a current call for your queue group.'}
                 </p>
                 {rejoinError && <p className="error-text">{rejoinError}</p>}
-                <button
-                  type="button"
-                  className="queue-primary-btn"
-                  onClick={handleRejoin}
-                  disabled={!canRejoin || isRejoining}
-                >
-                  {isRejoining ? 'Rejoining…' : 'Rejoin Queue'}
-                </button>
+                {rejoinPreview ? (
+                  <div className="queue-rejoin-confirm">
+                    <p>
+                      Rejoin as <strong>{rejoinPreview.queueNumber}</strong>.{' '}
+                      {rejoinPreview.groupsAhead === 0
+                        ? 'No groups are ahead of you.'
+                        : `${rejoinPreview.groupsAhead} ${rejoinPreview.groupsAhead === 1 ? 'group is' : 'groups are'} ahead of you.`}
+                    </p>
+                    <button
+                      type="button"
+                      className="queue-primary-btn"
+                      onClick={handleRejoin}
+                      disabled={isRejoining}
+                    >
+                      {isRejoining ? 'Rejoining…' : 'Confirm Rejoin'}
+                    </button>
+                    <button
+                      type="button"
+                      className="btn secondary"
+                      onClick={() => setRejoinPreview(null)}
+                      disabled={isRejoining}
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    className="queue-primary-btn"
+                    onClick={handleRejoinPreview}
+                    disabled={!canRejoin || isPreviewingRejoin}
+                  >
+                    {isPreviewingRejoin ? 'Checking position…' : 'Rejoin Queue'}
+                  </button>
+                )}
               </div>
             )}
           </div>
@@ -366,7 +438,7 @@ export default function Queue() {
           <div className="queue-ticket-stub">
             <div>
               <span className="queue-stub-label">Joined at</span>
-              <span className="queue-stub-value">{myEntry.joined_at ? myEntry.joined_at.slice(11, 19) : '—'}</span>
+              <span className="queue-stub-value">{formatRestaurantTime(myEntry.joined_at)}</span>
             </div>
             <div>
               <span className="queue-stub-label">Party size</span>
@@ -380,7 +452,10 @@ export default function Queue() {
 
           {['queued', 'called'].includes(myEntry.status) && (
             <div className="queue-ticket-actions">
-              <button type="button" className="queue-leave-btn" onClick={handleLeave}>Leave queue</button>
+              {queueActionError && <p className="error-text" role="alert">{queueActionError}</p>}
+              <button type="button" className="queue-leave-btn" onClick={handleLeave} disabled={isLeaving}>
+                {isLeaving ? 'Leaving…' : 'Leave queue'}
+              </button>
             </div>
           )}
         </section>

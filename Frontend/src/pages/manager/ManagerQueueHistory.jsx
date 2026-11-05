@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import api from '../../services/api';
 import Pagination, { usePagination } from '../../components/Pagination';
+import { formatRestaurantDateTime, getRestaurantDateForTimestamp, getRestaurantTimestamp } from '../../utils/restaurantTime';
 
 const STATUS_OPTIONS = [
   ['queued', 'Queuing'],
@@ -28,12 +29,14 @@ function statusLabel(status) {
 
 function formatDateTime(value) {
   if (!value) return '—';
-  const normalized = String(value).replace('T', ' ');
-  return `${normalized.slice(0, 10)} ${normalized.slice(11, 16)}`;
+  if (!String(value).includes(':')) return String(value).slice(0, 10);
+  return formatRestaurantDateTime(value);
 }
 
 function formatDate(value) {
-  return value ? String(value).slice(0, 10) : '';
+  return value
+    ? (String(value).includes(':') ? getRestaurantDateForTimestamp(value) : String(value).slice(0, 10))
+    : '';
 }
 
 function dateOf(entry) {
@@ -110,13 +113,17 @@ export default function ManagerQueueHistory() {
     .filter(entry => matches(entry, filters, search))
     .sort((a, b) => {
       if (sortBy === 'oldest') {
-        return new Date(a.joined_at || a.queue_date) - new Date(b.joined_at || b.queue_date);
+        const timeA = a.joined_at ? getRestaurantTimestamp(a.joined_at) : Date.parse(`${a.queue_date}T00:00:00Z`);
+        const timeB = b.joined_at ? getRestaurantTimestamp(b.joined_at) : Date.parse(`${b.queue_date}T00:00:00Z`);
+        return timeA - timeB;
       }
       if (sortBy === 'partySmall') return Number(a.party_size) - Number(b.party_size);
       if (sortBy === 'partyLarge') return Number(b.party_size) - Number(a.party_size);
       if (sortBy === 'queueId') return String(a.queue_number || '').localeCompare(String(b.queue_number || ''));
       if (sortBy === 'customer') return String(a.customer_name || '').localeCompare(String(b.customer_name || ''));
-      return new Date(b.joined_at || b.queue_date) - new Date(a.joined_at || a.queue_date);
+      const timeA = a.joined_at ? getRestaurantTimestamp(a.joined_at) : Date.parse(`${a.queue_date}T00:00:00Z`);
+      const timeB = b.joined_at ? getRestaurantTimestamp(b.joined_at) : Date.parse(`${b.queue_date}T00:00:00Z`);
+      return timeB - timeA;
     }), [entries, filters, search, sortBy]);
   const pagination = usePagination(filteredEntries, `${JSON.stringify(filters)}|${search}|${sortBy}`);
 

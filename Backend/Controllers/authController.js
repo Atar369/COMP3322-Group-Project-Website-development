@@ -2,6 +2,7 @@ const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
 const pool = require('../db');
+const { parseUtcDateTime } = require('../utils/restaurantTime');
 const { sendPasswordResetEmail } = require('../utils/mailer');
 
 const IS_PROD = process.env.NODE_ENV === 'production';
@@ -112,9 +113,9 @@ exports.login = async (req, res) => {
     }
 
     const user = rows[0];
-    const now = new Date();
+    const now = Date.now();
 
-    if (user.lock_until && new Date(user.lock_until) <= now) {
+    if (user.lock_until && parseUtcDateTime(user.lock_until) <= now) {
       await pool.query(
         'UPDATE users SET failed_attempts = 0, lock_until = NULL, last_failed_at = NULL WHERE user_id = ?',
         [user.user_id]
@@ -124,14 +125,14 @@ exports.login = async (req, res) => {
       user.last_failed_at = null;
     }
 
-    if (user.lock_until && new Date(user.lock_until) > now) {
-      const minutesLeft = Math.ceil((new Date(user.lock_until) - now) / 60000);
+    if (user.lock_until && parseUtcDateTime(user.lock_until) > now) {
+      const minutesLeft = Math.ceil((parseUtcDateTime(user.lock_until) - now) / 60000);
       return res.status(403).json({
         error: `Account is locked due to too many failed attempts. Try again in ${minutesLeft} minutes.`,
       });
     }
 
-    if (user.last_failed_at && now - new Date(user.last_failed_at) > FAILED_ATTEMPT_RESET_MS) {
+    if (user.last_failed_at && now - parseUtcDateTime(user.last_failed_at) > FAILED_ATTEMPT_RESET_MS) {
       await pool.query(
         'UPDATE users SET failed_attempts = 0, last_failed_at = NULL WHERE user_id = ?',
         [user.user_id]
@@ -145,9 +146,9 @@ exports.login = async (req, res) => {
       await pool.query(
         `UPDATE users
          SET failed_attempts = failed_attempts + 1,
-             last_failed_at = NOW(),
+             last_failed_at = UTC_TIMESTAMP(),
              lock_until = CASE
-               WHEN failed_attempts + 1 >= ? THEN DATE_ADD(NOW(), INTERVAL 15 MINUTE)
+               WHEN failed_attempts + 1 >= ? THEN DATE_ADD(UTC_TIMESTAMP(), INTERVAL 15 MINUTE)
                ELSE lock_until
              END
          WHERE user_id = ?`,
@@ -160,7 +161,7 @@ exports.login = async (req, res) => {
       );
       const fresh = freshRows[0] || { failed_attempts: 1, lock_until: null };
 
-      if (fresh.lock_until && new Date(fresh.lock_until) > new Date()) {
+      if (fresh.lock_until && parseUtcDateTime(fresh.lock_until) > Date.now()) {
         return res.status(403).json({
           error: 'Too many failed attempts. Your account is locked for 15 minutes.',
         });
@@ -372,7 +373,7 @@ exports.resetPassword = async (req, res) => {
     }
 
     const [rows] = await pool.query(
-      'SELECT user_id FROM users WHERE reset_token = ? AND reset_token_expires > NOW()',
+      'SELECT user_id FROM users WHERE reset_token = ? AND reset_token_expires > UTC_TIMESTAMP()',
       [token]
     );
     if (rows.length === 0) {

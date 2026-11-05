@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import api from '../../services/api';
 import { socket } from '../../socket';
 import { isLastOrderCutoffReached } from '../../utils/orderingWindow';
+import { getRestaurantTimestamp } from '../../utils/restaurantTime';
 
 const GROUPS = ['A', 'B', 'C'];
 const GROUP_RANGES = { A: '1–2 People', B: '3–6 People', C: '7+ People' };
@@ -17,7 +18,7 @@ function getGroupLabel(size) {
 function getCurrentCall(queue, group) {
   return queue
     .filter(entry => getGroupLabel(entry.party_size) === group && entry.status === 'called')
-    .sort((a, b) => new Date(b.called_at) - new Date(a.called_at))[0] || null;
+    .sort((a, b) => getRestaurantTimestamp(b.called_at) - getRestaurantTimestamp(a.called_at))[0] || null;
 }
 
 function getNextQueued(queue, group) {
@@ -76,7 +77,7 @@ export default function ManagerQueue() {
     const interval = setInterval(() => {
       queue.forEach(entry => {
         if (entry.status === 'serving' && entry.served_at
-          && Date.now() - new Date(entry.served_at).getTime() >= DINING_SESSION_MS) {
+          && Date.now() - getRestaurantTimestamp(entry.served_at) >= DINING_SESSION_MS) {
           setNotifications(previous => {
             if (previous.some(n => n.id === entry.queue_id)) return previous;
             return [...previous, {
@@ -178,7 +179,7 @@ export default function ManagerQueue() {
           const currentCall = getCurrentCall(queue, group);
           const nextQueued = getNextQueued(queue, group);
           const callAge = currentCall?.called_at
-            ? Math.max(0, now - new Date(currentCall.called_at).getTime())
+            ? Math.max(0, now - getRestaurantTimestamp(currentCall.called_at))
             : null;
           const remainingSeconds = callAge === null
             ? null

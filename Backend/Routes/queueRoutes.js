@@ -9,6 +9,7 @@ router.get('/', queueController.listAll);
 // Customer + manager
 router.get('/user/:user_id', verifyToken, queueController.listByUser);
 router.post('/', verifyToken, requireRole('customer'), queueController.join);
+router.get('/:id/rejoin-preview', verifyToken, requireRole('customer'), queueController.customerRejoinPreview);
 router.post('/:id/rejoin', verifyToken, requireRole('customer'), queueController.customerRejoin);
 router.patch('/:id/cancel', verifyToken, queueController.cancel);
 

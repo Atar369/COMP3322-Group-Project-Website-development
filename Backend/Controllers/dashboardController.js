@@ -1,4 +1,5 @@
 const db = require('../db');
+const { getRestaurantDateKey } = require('../utils/restaurantTime');
 
 const tdStat = async (tarDate = null) => {
     const query = tarDate ? `
@@ -6,17 +7,17 @@ const tdStat = async (tarDate = null) => {
             COALESCE(SUM(total_amount), 0.00) AS tdRevenue,
             COUNT(order_id) AS tdPaidOrders
         FROM orders
-        WHERE DATE(order_time) = ?
+        WHERE DATE(DATE_ADD(order_time, INTERVAL 8 HOUR)) = ?
             AND payment_status = 'paid';
     ` : `
         SELECT
             COALESCE(SUM(total_amount), 0.00) AS tdRevenue,
             COUNT(order_id) AS tdPaidOrders
         FROM orders
-        WHERE DATE(order_time) = CURDATE() 
+        WHERE DATE(DATE_ADD(order_time, INTERVAL 8 HOUR)) = ?
             AND payment_status = 'paid';
     `;
-    const [rows] = await db.query(query, tarDate ? [tarDate] : []);
+    const [rows] = await db.query(query, [tarDate || getRestaurantDateKey()]);
     return rows[0] || { tdRevenue: 0.00, tdPaidOrders: 0 };
 };
 
@@ -25,7 +26,7 @@ const weekStat = async () => {
         SELECT
             COALESCE(SUM(total_amount), 0.00) AS weekRevenue
         FROM orders
-        WHERE order_time >= NOW() - INTERVAL 7 DAY
+        WHERE order_time >= UTC_TIMESTAMP() - INTERVAL 7 DAY
             AND payment_status = 'paid';
     `;
     const [rows] = await db.query(query);
@@ -35,12 +36,12 @@ const weekStat = async () => {
 const revenueTrend = async () => {
     const query = `
         SELECT
-            DATE(order_time) AS date,
+            DATE(DATE_ADD(order_time, INTERVAL 8 HOUR)) AS date,
             COALESCE(SUM(total_amount), 0.00) AS revenue
         FROM orders
-        WHERE order_time >= NOW() - INTERVAL 7 DAY
+        WHERE order_time >= UTC_TIMESTAMP() - INTERVAL 7 DAY
             AND payment_status = 'paid'
-        GROUP BY DATE(order_time)
+        GROUP BY DATE(DATE_ADD(order_time, INTERVAL 8 HOUR))
         ORDER BY date ASC;
     `;
     const [rows] = await db.query(query);
@@ -56,7 +57,7 @@ const topItems = async () => {
         FROM order_items oi
         JOIN orders o ON oi.order_id = o.order_id
         JOIN menu_items m ON oi.item_id = m.item_id
-        WHERE o.order_time >= NOW() - INTERVAL 7 DAY
+        WHERE o.order_time >= UTC_TIMESTAMP() - INTERVAL 7 DAY
             AND o.payment_status = 'paid'
         GROUP BY m.item_id, m.name, m.category
         ORDER BY totalSold DESC
@@ -69,22 +70,22 @@ const topItems = async () => {
 const hrOrder = async (tarDate = null) => {
     const query = tarDate ? `
         SELECT
-            HOUR(order_time) AS hr,
+            HOUR(DATE_ADD(order_time, INTERVAL 8 HOUR)) AS hr,
             COUNT(order_id) AS count
         FROM orders
-        WHERE DATE(order_time) = ?
-        GROUP BY HOUR(order_time)
+        WHERE DATE(DATE_ADD(order_time, INTERVAL 8 HOUR)) = ?
+        GROUP BY HOUR(DATE_ADD(order_time, INTERVAL 8 HOUR))
         ORDER BY hr ASC;
     ` : `
         SELECT
-            HOUR(order_time) AS hr,
+            HOUR(DATE_ADD(order_time, INTERVAL 8 HOUR)) AS hr,
             COUNT(order_id) AS count
         FROM orders
-        WHERE DATE(order_time) = CURDATE()
-        GROUP BY HOUR(order_time)
+        WHERE DATE(DATE_ADD(order_time, INTERVAL 8 HOUR)) = ?
+        GROUP BY HOUR(DATE_ADD(order_time, INTERVAL 8 HOUR))
         ORDER BY hr ASC;
     `;
-    const [rows] = await db.query(query, tarDate ? [tarDate] : []);
+    const [rows] = await db.query(query, [tarDate || getRestaurantDateKey()]);
     return rows;
 };
 
@@ -112,7 +113,7 @@ const dashboardData = async (request, response) => {
 
         const dashboardResponse = {
             metadata: {
-                snapshotDate: tarDate || new Date().toISOString().split('T')[0],
+                snapshotDate: tarDate || getRestaurantDateKey(),
                 generatedAt: new Date()
             },
 

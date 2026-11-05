@@ -1,13 +1,13 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import api from '../../services/api';
 import Pagination, { usePagination } from '../../components/Pagination';
+import { formatRestaurantDateTime, getRestaurantDateForTimestamp, getRestaurantTimestamp } from '../../utils/restaurantTime';
 
 const DINING_SESSION_MS = 60 * 60 * 1000;
 
 function formatDateTime(value) {
   if (!value) return '—';
-  const normalized = String(value).replace('T', ' ');
-  return `${normalized.slice(0, 10)} ${normalized.slice(11, 16)}`;
+  return formatRestaurantDateTime(value);
 }
 
 function formatTimeRemaining(remainingMs) {
@@ -18,12 +18,14 @@ function formatTimeRemaining(remainingMs) {
 }
 
 function normalizeDate(value) {
-  return value ? String(value).slice(0, 10) : '';
+  return value ? getRestaurantDateForTimestamp(value) : '';
 }
 
 function matchesFilters(record, filters, search) {
-  const orderDates = record.orders.map(order => normalizeDate(order.order_time));
-  const hasDateInRange = orderDates.some(date =>
+  const recordDates = record.orders.length
+    ? record.orders.map(order => normalizeDate(order.order_time))
+    : record.sessions.map(session => normalizeDate(session.served_at)).filter(Boolean);
+  const hasDateInRange = recordDates.some(date =>
     (!filters.dateFrom || date >= filters.dateFrom)
     && (!filters.dateTo || date <= filters.dateTo)
   );
@@ -55,6 +57,7 @@ function matchesFilters(record, filters, search) {
       normalizeDate(order.order_time),
       ...order.items.map(item => item.name.toLowerCase()),
     ]),
+    ...(record.orders.length ? [] : recordDates),
   ];
   return searchValues.some(value => value.includes(term));
 }
@@ -86,10 +89,9 @@ function groupByTable(sessions) {
     .map(table => ({
       ...table,
       customerName: [...table.customers].join(', '),
-      sessions: table.sessions.sort((a, b) => new Date(a.served_at) - new Date(b.served_at)),
+      sessions: table.sessions.sort((a, b) => getRestaurantTimestamp(a.served_at) - getRestaurantTimestamp(b.served_at)),
       orders: [...table.orders.values()].sort((a, b) => a.order_id - b.order_id),
     }))
-    .filter(table => table.orders.length > 0)
     .sort((a, b) => a.tableNumber - b.tableNumber);
 }
 
@@ -189,8 +191,8 @@ export default function ManagerOrders() {
     ...table,
     total: table.orders.reduce((sum, order) => sum + Number(order.total_amount), 0),
     partySize: table.sessions.reduce((sum, session) => sum + Number(session.party_size), 0),
-    firstOrderTime: Math.min(...table.orders.map(order => new Date(order.order_time).getTime())),
-    lastOrderTime: Math.max(...table.orders.map(order => new Date(order.order_time).getTime())),
+    firstOrderTime: Math.min(...table.orders.map(order => getRestaurantTimestamp(order.order_time))),
+    lastOrderTime: Math.max(...table.orders.map(order => getRestaurantTimestamp(order.order_time))),
   })).filter(table => matchesFilters(table, filters, search))
     .sort((a, b) => {
       if (sortBy === 'oldest') return a.firstOrderTime - b.firstOrderTime;
@@ -209,12 +211,12 @@ export default function ManagerOrders() {
     orders: [order],
   })).filter(order => matchesFilters(order, filters, search))
     .sort((a, b) => {
-      if (sortBy === 'oldest') return new Date(a.order_time) - new Date(b.order_time);
+      if (sortBy === 'oldest') return getRestaurantTimestamp(a.order_time) - getRestaurantTimestamp(b.order_time);
       if (sortBy === 'totalHigh') return b.total - a.total;
       if (sortBy === 'totalLow') return a.total - b.total;
       if (sortBy === 'customer') return a.customerName.localeCompare(b.customerName);
       if (sortBy === 'table') return Number(a.tableNumber || a.tableId) - Number(b.tableNumber || b.tableId);
-      return new Date(b.order_time) - new Date(a.order_time);
+      return getRestaurantTimestamp(b.order_time) - getRestaurantTimestamp(a.order_time);
     }), [paidOrders, filters, search, sortBy]);
   const paginationResetKey = `${activeView}|${JSON.stringify(filters)}|${search}|${sortBy}`;
   const activePagination = usePagination(activeTableRecords, paginationResetKey);
@@ -366,7 +368,7 @@ export default function ManagerOrders() {
             .filter(Boolean);
           const allFinished = table.sessions.every(session => session.session_status === 'finished');
           const earliestServedAt = table.sessions
-            .map(session => session.served_at ? new Date(session.served_at).getTime() : NaN)
+            .map(session => session.served_at ? getRestaurantTimestamp(session.served_at) : NaN)
             .filter(servedAt => Number.isFinite(servedAt))
             .reduce((earliest, servedAt) => Math.min(earliest, servedAt), Infinity);
           const hasSeatingTime = Number.isFinite(earliestServedAt);
@@ -389,7 +391,10 @@ export default function ManagerOrders() {
               return (
                 <article className="manager-table-order-card" key={table.tableId}>
               <div className="manager-table-order-primary">
-                <strong className="manager-table-order-title">Table {table.tableId}</strong>
+                <strong className="manager-table-order-title">Table {table.tableNumber || table.tableId}</strong>
+                {tableOrders.length === 0 && (
+                  <span className="manager-table-order-line">No orders placed yet</span>
+                )}
                 {tableOrders.map(order => (
                   <span className="manager-table-order-line" key={order.order_id}>
                     Order #{order.order_id} · ${Number(order.total_amount).toFixed(2)}

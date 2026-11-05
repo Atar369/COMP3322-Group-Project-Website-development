@@ -10,7 +10,14 @@ const pool = mysql.createPool({
   waitForConnections: true,
   connectionLimit: 10,
   queueLimit: 0,
-  dateStrings: true 
+  dateStrings: true,
+  timezone: 'Z',
+});
+
+pool.on('connection', connection => {
+  connection.query("SET time_zone = '+00:00'", error => {
+    if (error) console.error('Unable to set database connection timezone to UTC:', error);
+  });
 });
 
 module.exports = pool;

@@ -2,10 +2,12 @@ import { useState, useEffect, useMemo } from 'react';
 import { useAuth } from '../context/AuthContext';
 import api from '../services/api';
 import Pagination, { usePagination } from '../components/Pagination';
+import { formatRestaurantDateTime, getRestaurantDateForTimestamp, getRestaurantTimestamp } from '../utils/restaurantTime';
 
 function formatDateTime(value) {
-  const dateTime = String(value || '').replace('T', ' ');
-  return { date: dateTime.slice(0, 10) || '—', time: dateTime.slice(11, 16) || '—' };
+  const dateTime = formatRestaurantDateTime(value);
+  const [date = '—', time = '—'] = dateTime.split(' ');
+  return { date, time };
 }
 
 function groupOrdersIntoBills(orders) {
@@ -25,8 +27,8 @@ function groupOrdersIntoBills(orders) {
     }
     bill.orders.push(order);
     bill.total += Number(order.total_amount);
-    if (new Date(order.order_time) < new Date(bill.orderTime)) bill.orderTime = order.order_time;
-    if (new Date(order.order_time) > new Date(bill.latestOrderTime)) bill.latestOrderTime = order.order_time;
+    if (getRestaurantTimestamp(order.order_time) < getRestaurantTimestamp(bill.orderTime)) bill.orderTime = order.order_time;
+    if (getRestaurantTimestamp(order.order_time) > getRestaurantTimestamp(bill.latestOrderTime)) bill.latestOrderTime = order.order_time;
     const sessionKey = order.booking_id ? `booking-${order.booking_id}` : order.queue_id ? `queue-${order.queue_id}` : `order-${order.order_id}`;
     if (order.party_size != null && !bill.partySizes.has(sessionKey)) bill.partySizes.set(sessionKey, Number(order.party_size));
   });
@@ -37,7 +39,7 @@ function groupOrdersIntoBills(orders) {
       orders: bill.orders.sort((a, b) => a.order_id - b.order_id),
       partySize: [...bill.partySizes.values()].reduce((total, size) => total + size, 0),
     }))
-    .sort((a, b) => new Date(b.latestOrderTime) - new Date(a.latestOrderTime));
+    .sort((a, b) => getRestaurantTimestamp(b.latestOrderTime) - getRestaurantTimestamp(a.latestOrderTime));
 }
 
 export default function OrderHistory() {
@@ -64,7 +66,7 @@ export default function OrderHistory() {
   const bills = useMemo(() => {
     const term = search.trim().toLowerCase();
     return groupOrdersIntoBills(orders).filter(bill => {
-      const dates = bill.orders.map(order => String(order.order_time || '').slice(0, 10));
+      const dates = bill.orders.map(order => getRestaurantDateForTimestamp(order.order_time));
       const orderIds = bill.orders.map(order => String(order.order_id));
       const tableId = String(bill.tableId ?? '');
       const searchValues = [
@@ -84,11 +86,11 @@ export default function OrderHistory() {
         && (filters.maximumTotal === '' || bill.total <= Number(filters.maximumTotal))
         && (!term || searchValues.some(value => value.toLowerCase().includes(term)));
     }).sort((a, b) => {
-      if (sortBy === 'oldest') return new Date(a.orderTime) - new Date(b.orderTime);
+      if (sortBy === 'oldest') return getRestaurantTimestamp(a.orderTime) - getRestaurantTimestamp(b.orderTime);
       if (sortBy === 'totalHigh') return b.total - a.total;
       if (sortBy === 'totalLow') return a.total - b.total;
       if (sortBy === 'table') return Number(a.tableId || 0) - Number(b.tableId || 0);
-      return new Date(b.latestOrderTime) - new Date(a.latestOrderTime);
+      return getRestaurantTimestamp(b.latestOrderTime) - getRestaurantTimestamp(a.latestOrderTime);
     });
   }, [orders, filters, search, sortBy]);
   const pagination = usePagination(bills, `${JSON.stringify(filters)}|${search}|${sortBy}`);

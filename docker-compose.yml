@@ -42,6 +42,7 @@ services:
   db:
     image: mysql:8.0
     restart: unless-stopped
+    command: ["--default-time-zone=+00:00"]
     environment:
       MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD}
       MYSQL_DATABASE: ${DB_NAME}
