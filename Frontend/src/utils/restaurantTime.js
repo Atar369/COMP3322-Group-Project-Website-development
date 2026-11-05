@@ -1,12 +1,6 @@
 const RESTAURANT_TIME_ZONE = 'Asia/Hong_Kong';
 
-function getTestCurrentDate() {
-  const now = new Date();
-  now.setHours(19, 0, 0, 0); 
-  return now;
-}
-
-/*function parseUtcTimestamp(value) {
+function parseUtcTimestamp(value) {
   if (!value) return NaN;
   if (value instanceof Date) return value.getTime();
 
@@ -15,7 +9,7 @@ function getTestCurrentDate() {
     ? `${timestamp.replace(' ', 'T')}Z`
     : timestamp;
   return Date.parse(normalized);
-}*/
+}
 
 export function getRestaurantDateKey(date = new Date()) {
   const parts = new Intl.DateTimeFormat('en-GB', {
