@@ -61,6 +61,17 @@ async function create(request, response) {
       return response.status(409).json({error: "You can only make one booking per day."});
     }
 
+    const checkQueueConflict = `SELECT EXISTS (
+      SELECT 1 FROM queue_entries
+      WHERE user_id = ? AND queue_date = DATE(?) AND status IN ('queued', 'called', 'serving')
+    ) AS has_queue;`;
+    
+    const [queueRows] = await connection.query(checkQueueConflict, [user_id, booking_date]);
+    if (queueRows[0].has_queue === 1) {
+      await connection.rollback();
+      return response.status(409).json({error: "You cannot make a booking while you have an active queue entry for the same date."});
+    }
+
     // Auto-assign a table with capacity between party_size and party_size+2 that is free
     const [tableRows] = await connection.query(
       `SELECT t.table_id FROM restaurant_tables t
