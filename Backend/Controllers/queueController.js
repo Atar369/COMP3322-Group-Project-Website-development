@@ -140,6 +140,18 @@ async function join(req, res) {
       });
     }
 
+    const [bookingConflict] = await conn.query(
+      `SELECT booking_id FROM bookings
+       WHERE user_id = ? AND DATE(booking_date) = ? AND status IN ('booked','serving')
+       FOR UPDATE`,
+      [user_id, today]
+    );
+
+    if (bookingConflict.length > 0) {
+      await conn.rollback();
+      return res.status(409).json({ error: 'You cannot join the queue while you have an active booking for the same date.' });
+    }
+
     const [lastRows] = await conn.query(
       `SELECT queue_number FROM queue_entries
        WHERE queue_date = ? AND queue_number LIKE ?
