@@ -269,6 +269,11 @@ async function edit(request, response) {
     return response.status(400).json({error: "Invalid booking date or time."});
   }
 
+  const [hStr, mStr] = booking_time.split(':');
+  if (parseInt(hStr, 10) > 21 || (parseInt(hStr, 10) === 21 && parseInt(mStr, 10) > 0)) {
+    return response.status(400).json({error: "Last entry is 21:00. No bookings accepted after 21:00."});
+  }
+
   if (!isAtLeastRestaurantTomorrow(booking_date)) {
     return response.status(400).json({error: "Bookings must be made at least one day in advance."});
   }
