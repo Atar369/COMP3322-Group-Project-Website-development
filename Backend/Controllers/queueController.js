@@ -136,7 +136,7 @@ async function join(req, res) {
     if (missedCheck[0].miss_count >= 1) {
       await conn.rollback();
       return res.status(403).json({
-        error: 'You already have a missed ticket today. Use Rejoin Queue if your ticket meets the rejoin requirements.',
+        error: 'You have already missed your turn once. Please see the manager to rejoin.',
       });
     }
 
@@ -650,6 +650,10 @@ async function reissue(req, res) {
     }
 
     const { user_id, party_size, queue_date } = entry[0];
+    if (queue_date !== getRestaurantDateKey()) {
+      await conn.rollback();
+      return res.status(409).json({ error: 'Only today’s missed tickets can be reissued.' });
+    }
     const prefix = getGroupPrefix(party_size);
 
     await conn.query(
@@ -707,181 +711,6 @@ async function reissue(req, res) {
   }
 }
 
-async function getCustomerRejoinPreview(conn, missed, userId) {
-  if (missed.queue_date !== getRestaurantDateKey()) {
-    return { status: 409, error: 'Only today’s missed ticket can rejoin the queue.' };
-  }
-  if (Number(missed.rejoin_count) > 0) {
-    return { status: 409, error: 'You have already rejoined the queue today.' };
-  }
-
-  const [rejoinedRows] = await conn.query(
-    `SELECT queue_id FROM queue_entries
-     WHERE user_id = ? AND queue_date = ? AND rejoin_count > 0
-     LIMIT 1`,
-    [userId, missed.queue_date]
-  );
-  if (rejoinedRows.length) {
-    return { status: 409, error: 'You have already rejoined the queue today.' };
-  }
-
-  const prefix = getGroupPrefix(missed.party_size);
-  const [calledRows] = await conn.query(
-    `SELECT queue_number FROM queue_entries
-     WHERE queue_date = ? AND queue_number LIKE ? AND status = 'called'
-     ORDER BY called_at DESC, queue_id DESC LIMIT 1`,
-    [missed.queue_date, `${prefix}%`]
-  );
-  if (!calledRows.length) {
-    return { status: 409, error: 'There is no current call for your queue group yet.' };
-  }
-
-  const missedNumber = Number(missed.queue_number.slice(1));
-  const currentNumber = Number(calledRows[0].queue_number.slice(1));
-  if (missedNumber > currentNumber || missedNumber < currentNumber - 35) {
-    return {
-      status: 409,
-      error: 'You can rejoin when your missed number is no more than 35 numbers behind the current call.',
-    };
-  }
-
-  const [activeRows] = await conn.query(
-    `SELECT queue_id FROM queue_entries
-     WHERE user_id = ? AND queue_date = ? AND status IN ('queued','called','serving')
-     LIMIT 1`,
-    [userId, missed.queue_date]
-  );
-  if (activeRows.length) {
-    return { status: 409, error: 'You already have an active queue ticket.' };
-  }
-
-  const [assignedRows] = await conn.query(
-    `SELECT queue_number, status FROM queue_entries
-     WHERE queue_date = ? AND queue_number LIKE ?`,
-    [missed.queue_date, `${prefix}%`]
-  );
-  const assignedNumbers = assignedRows
-    .map(row => Number(String(row.queue_number || '').slice(1)))
-    .filter(number => Number.isInteger(number) && number > 0);
-  const targetNumber = Math.max(0, ...assignedNumbers) + 1;
-  if (targetNumber > MAX_QUEUE_NUMBER) {
-    return {
-      status: 409,
-      error: 'This queue group has reached its daily ticket limit (999). Please try again tomorrow.',
-    };
-  }
-
-  const groupsAhead = assignedRows.filter(row => (
-    ['queued', 'called'].includes(row.status)
-    && Number(String(row.queue_number || '').slice(1)) < targetNumber
-  )).length;
-
-  return {
-    queueNumber: `${prefix}${String(targetNumber).padStart(3, '0')}`,
-    groupsAhead,
-    queueDate: missed.queue_date,
-  };
-}
-
-// GET /api/queue/:id/rejoin-preview — validate eligibility and preview the next ticket
-async function customerRejoinPreview(req, res) {
-  const { id } = req.params;
-  const userId = req.user.user_id;
-
-  try {
-    const [missedRows] = await db.query(
-      `SELECT queue_id, user_id, party_size, queue_number,
-              DATE_FORMAT(queue_date, '%Y-%m-%d') AS queue_date, rejoin_count
-       FROM queue_entries
-       WHERE queue_id = ? AND user_id = ? AND status = 'missed'`,
-      [id, userId]
-    );
-    if (!missedRows.length) {
-      return res.status(404).json({ error: 'Missed queue entry not found.' });
-    }
-
-    const preview = await getCustomerRejoinPreview(db, missedRows[0], userId);
-    if (preview.error) return res.status(preview.status).json({ error: preview.error });
-    return res.json(preview);
-  } catch (err) {
-    console.error('customer rejoin preview error:', err);
-    return res.status(500).json({ error: 'Please try again later.' });
-  }
-}
-
-// POST /api/queue/:id/rejoin — confirm the previewed ticket number
-async function customerRejoin(req, res) {
-  const { id } = req.params;
-  const userId = req.user.user_id;
-  const expectedQueueNumber = String(req.body?.queue_number || '');
-  const expectedGroupsAhead = Number(req.body?.groups_ahead);
-  if (!/^[ABC]\d{3}$/.test(expectedQueueNumber) || !Number.isInteger(expectedGroupsAhead) || expectedGroupsAhead < 0) {
-    return res.status(400).json({ error: 'Preview your rejoin ticket before confirming.' });
-  }
-  const conn = await db.getConnection();
-
-  try {
-    await conn.beginTransaction();
-
-    const [missedRows] = await conn.query(
-      `SELECT queue_id, user_id, party_size, queue_number,
-              DATE_FORMAT(queue_date, '%Y-%m-%d') AS queue_date, rejoin_count
-       FROM queue_entries
-       WHERE queue_id = ? AND user_id = ? AND status = 'missed'
-       FOR UPDATE`,
-      [id, userId]
-    );
-    if (!missedRows.length) {
-      await conn.rollback();
-      return res.status(404).json({ error: 'Missed queue entry not found.' });
-    }
-
-    const missed = missedRows[0];
-    const prefix = getGroupPrefix(missed.party_size);
-    await conn.query(
-      `SELECT group_code FROM queue_auto_call_settings WHERE group_code = ? FOR UPDATE`,
-      [prefix]
-    );
-
-    const preview = await getCustomerRejoinPreview(conn, missed, userId);
-    if (preview.error) {
-      await conn.rollback();
-      return res.status(preview.status).json({ error: preview.error });
-    }
-    if (preview.queueNumber !== expectedQueueNumber || preview.groupsAhead !== expectedGroupsAhead) {
-      await conn.rollback();
-      return res.status(409).json({
-        error: `The queue changed while you were confirming. Your updated number is ${preview.queueNumber} with ${preview.groupsAhead} ${preview.groupsAhead === 1 ? 'group' : 'groups'} ahead; please review it before confirming.`,
-      });
-    }
-
-    await conn.query(
-      `UPDATE queue_entries SET rejoin_count = 1 WHERE queue_id = ?`,
-      [missed.queue_id]
-    );
-    const [result] = await conn.query(
-      `INSERT INTO queue_entries (user_id, party_size, queue_number, queue_date, status, rejoin_count)
-       VALUES (?, ?, ?, ?, 'queued', 1)`,
-      [userId, missed.party_size, preview.queueNumber, missed.queue_date]
-    );
-
-    await conn.commit();
-    emit(req, { action: 'rejoin', queueId: result.insertId, queueNumber: preview.queueNumber });
-    return res.status(201).json({
-      message: 'You have rejoined the queue.',
-      queueId: result.insertId,
-      queueNumber: preview.queueNumber,
-      groupsAhead: preview.groupsAhead,
-    });
-  } catch (err) {
-    await conn.rollback();
-    console.error('customer rejoin queue error:', err);
-    return res.status(500).json({ error: 'Please try again later.' });
-  } finally {
-    conn.release();
-  }
-}
-
 module.exports = {
   setSocketIo,
   listAll,
@@ -899,6 +728,4 @@ module.exports = {
   pay,
   cancel,
   reissue,
-  customerRejoinPreview,
-  customerRejoin,
 };

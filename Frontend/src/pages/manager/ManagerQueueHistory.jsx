@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import api from '../../services/api';
 import Pagination, { usePagination } from '../../components/Pagination';
-import { formatRestaurantDateTime, getRestaurantDateForTimestamp, getRestaurantTimestamp } from '../../utils/restaurantTime';
+import { formatRestaurantDateTime, getRestaurantDateForTimestamp, getRestaurantTimestamp, getRestaurantDateKey } from '../../utils/restaurantTime';
 
 const STATUS_OPTIONS = [
   ['queued', 'Queuing'],
@@ -90,6 +90,9 @@ export default function ManagerQueueHistory() {
   });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [reissuingId, setReissuingId] = useState(null);
+  const [actionMessage, setActionMessage] = useState('');
+  const [actionError, setActionError] = useState('');
 
   const load = useCallback(async () => {
     try {
@@ -108,6 +111,22 @@ export default function ManagerQueueHistory() {
     const refresh = setInterval(load, 15000);
     return () => clearInterval(refresh);
   }, [load]);
+
+  async function handleReissue(entry) {
+    if (reissuingId !== null) return;
+    setReissuingId(entry.queue_id);
+    setActionMessage('');
+    setActionError('');
+    try {
+      const response = await api.patch(`/queue/${entry.queue_id}/reissue`);
+      setActionMessage(`${entry.customer_name || 'Customer'} has been reissued queue number ${response.data.queueNumber}.`);
+      await load();
+    } catch (requestError) {
+      setActionError(requestError.response?.data?.error || 'Unable to reissue this queue ticket.');
+    } finally {
+      setReissuingId(null);
+    }
+  }
 
   const filteredEntries = useMemo(() => entries
     .filter(entry => matches(entry, filters, search))
@@ -238,6 +257,8 @@ export default function ManagerQueueHistory() {
               {error} <button className="btn secondary" onClick={load}>Retry</button>
             </p>
           )}
+          {actionMessage && <p role="status">{actionMessage}</p>}
+          {actionError && <p className="error-text" role="alert">{actionError}</p>}
           {loading && !error && <p className="manager-queue-history-empty">Loading queue history…</p>}
           {!loading && !error && filteredEntries.length === 0 && (
             <p className="manager-queue-history-empty">No queue tickets match these filters.</p>
@@ -267,6 +288,17 @@ export default function ManagerQueueHistory() {
                         ? `Assigned table ${entry.assigned_table_number}`
                         : 'No table assigned'}
                   </strong>
+                  {normalizeStatus(entry.status) === 'missed'
+                    && String(entry.queue_date).slice(0, 10) === getRestaurantDateKey() && (
+                    <button
+                      type="button"
+                      className="btn secondary"
+                      onClick={() => handleReissue(entry)}
+                      disabled={reissuingId !== null}
+                    >
+                      {reissuingId === entry.queue_id ? 'Reissuing…' : 'Reissue ticket'}
+                    </button>
+                  )}
                 </div>
               </article>
             ))}
