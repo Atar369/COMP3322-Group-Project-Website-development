@@ -27,6 +27,12 @@ services:
       - DB_NAME=${DB_NAME}
       - JWT_SECRET=${JWT_SECRET}
       - JWT_EXPIRES_IN=7d
+      - SMTP_HOST=${SMTP_HOST:-smtp.gmail.com}
+      - SMTP_PORT=${SMTP_PORT:-587}
+      - SMTP_USER=${SMTP_USER:-}
+      - SMTP_PASS=${SMTP_PASS:-}
+      - SMTP_SECURE=${SMTP_SECURE:-false}
+      - SMTP_FROM=${SMTP_FROM:-${SMTP_USER:-no-reply@emberandoak.local}}
       - MENU_IMAGE_DIR=/app/uploads/menu-images
       - BOOTSTRAP_MANAGER_NAME=${BOOTSTRAP_MANAGER_NAME:-}
       - BOOTSTRAP_MANAGER_ID=${BOOTSTRAP_MANAGER_ID:-}

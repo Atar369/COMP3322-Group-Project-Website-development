@@ -8,6 +8,10 @@ export default function CustomerLogin() {
 
   async function handleLogin(email, password) {
     const result = await login(email, password);
+    if (result.code === 'EMAIL_NOT_VERIFIED') {
+      navigate('/verify-email', { state: { email, needsVerification: true } });
+      return;
+    }
     if (result.error) return result.error;
     if (result.user.role !== 'customer') return 'This account is not a customer account.';
     navigate('/home', { replace: true });

@@ -12,6 +12,10 @@ CREATE TABLE users (
   role VARCHAR(8) NOT NULL DEFAULT 'customer',
   reset_token VARCHAR(255) NULL,
   reset_token_expires DATETIME NULL,
+  email_verified BOOLEAN NOT NULL DEFAULT TRUE,
+  email_verification_token_hash CHAR(64) NULL,
+  email_verification_expires DATETIME NULL,
+  email_verification_sent_at DATETIME NULL,
   failed_attempts INT UNSIGNED NOT NULL DEFAULT 0,
   lock_until DATETIME NULL,
   last_failed_at DATETIME NULL,
@@ -21,6 +25,7 @@ CREATE TABLE users (
   UNIQUE KEY uq_users_manager_id (manager_id),
   UNIQUE KEY uq_users_email (email),
   UNIQUE KEY uq_users_phone (phone),
+  KEY idx_users_email_verification_token (email_verification_token_hash),
   CONSTRAINT chk_users_role CHECK (role IN ('customer', 'manager'))
 );
 

@@ -5,6 +5,7 @@ const cookieParser = require('cookie-parser');
 const { Server } = require('socket.io');
 
 const db = require('./db');
+const ensureAuthSchema = require('./middleware/ensureAuthSchema');
 const errorHandler = require('./middleware/errorHandler');
 const queueController = require('./Controllers/queueController');
 const bookingController = require('./Controllers/bookingController');
@@ -100,6 +101,7 @@ function startBackgroundTasks() {
 // Startup
 async function start() {
   await waitForDatabase();
+  await ensureAuthSchema();
 
   server.listen(port, () => {
     console.log(`Backend listening on port ${port}`);

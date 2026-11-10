@@ -10,6 +10,7 @@ import CustomerLogin from './pages/CustomerLogin';
 import ManagerLogin from './pages/ManagerLogin';
 import CustomerRegister from './pages/CustomerRegister';
 import ForgotPassword from './pages/ForgotPassword';
+import EmailVerification from './pages/EmailVerification';
 import Menu from './pages/Menu';
 import ViewMenu from './pages/ViewMenu';
 import Cart from './pages/Cart';
@@ -56,6 +57,7 @@ export default function App() {
               <Route path="/register/manager" element={<Navigate to="/welcome" replace />} />
               <Route path="/forgot-password" element={<ForgotPassword />} />
               <Route path="/reset-password" element={<ForgotPassword />} />
+              <Route path="/verify-email" element={<EmailVerification />} />
 
               <Route path="/dashboard" element={<Navigate to="/home" replace />} />
               <Route path="/view-menu" element={<ProtectedRoute role="customer"><ViewMenu /></ProtectedRoute>} />

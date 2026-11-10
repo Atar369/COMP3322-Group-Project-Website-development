@@ -5,6 +5,7 @@ import { useAuth } from '../context/AuthContext';
 export default function CustomerRegister() {
   const [form, setForm] = useState({ name: '', email: '', phone: '', password: '' });
   const [error, setError] = useState('');
+  const [submitting, setSubmitting] = useState(false);
   const { register } = useAuth();
   const navigate = useNavigate();
 
@@ -15,15 +16,25 @@ export default function CustomerRegister() {
   async function handleSubmit(e) {
     e.preventDefault();
     setError('');
-    
-    const result = await register(form.name, form.email, form.phone, form.password);
-    
-    if (result.error) {
-      setError(result.error);
-      return;
+    setSubmitting(true);
+
+    try {
+      const result = await register(form.name, form.email, form.phone, form.password);
+      if (result.error) {
+        if (result.verificationPending) {
+          navigate('/verify-email', { state: { email: result.email, deliveryError: result.error } });
+          return;
+        }
+        setError(result.error);
+        return;
+      }
+
+      navigate('/verify-email', {
+        state: { email: result.email, emailPreviewUrl: result.emailPreviewUrl, emailSent: true },
+      });
+    } finally {
+      setSubmitting(false);
     }
-    
-    navigate('/menu'); 
   }
 
   return (
@@ -53,7 +64,9 @@ export default function CustomerRegister() {
           />
         </div>
         {error && <p className="error-text">{error}</p>}
-        <button className="btn" type="submit">Register</button>
+        <button className="btn" type="submit" disabled={submitting}>
+          {submitting ? 'Creating account…' : 'Register'}
+        </button>
       </form>
       <p style={{ marginTop: 16 }}>
         Already have an account? <Link to="/login/customer">Log in</Link>

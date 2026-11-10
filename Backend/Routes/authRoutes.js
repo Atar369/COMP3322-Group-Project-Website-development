@@ -6,6 +6,8 @@ const { verifyToken, requireRole } = require('../middleware/authMiddleware');
 router.post('/register', authController.register);
 router.post('/login', authController.login);
 router.post('/logout', authController.logout);
+router.post('/verify-email', authController.verifyEmail);
+router.post('/resend-verification', authController.resendEmailVerification);
 
 router.post('/create-manager', verifyToken, requireRole('manager'), authController.createManager);
 

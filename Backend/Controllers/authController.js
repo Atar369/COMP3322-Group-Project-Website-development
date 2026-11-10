@@ -3,11 +3,13 @@ const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
 const pool = require('../db');
 const { parseUtcDateTime } = require('../utils/restaurantTime');
-const { sendPasswordResetEmail } = require('../utils/mailer');
+const { sendPasswordResetEmail, sendEmailVerificationEmail } = require('../utils/mailer');
 
 const IS_PROD = process.env.NODE_ENV === 'production';
 const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || '7d';
 const RESET_TOKEN_TTL_MS = 15 * 60 * 1000;
+const EMAIL_VERIFICATION_TTL_HOURS = 24;
+const EMAIL_VERIFICATION_RESEND_COOLDOWN_SECONDS = 60;
 const MAX_FAILED_ATTEMPTS = 5;
 const FAILED_ATTEMPT_RESET_MS = 15 * 60 * 1000;
 
@@ -29,6 +31,23 @@ function signToken(user) {
     process.env.JWT_SECRET,
     { expiresIn: JWT_EXPIRES_IN }
   );
+}
+
+function createEmailVerificationToken() {
+  const token = crypto.randomBytes(32).toString('hex');
+  return { token, tokenHash: crypto.createHash('sha256').update(token).digest('hex') };
+}
+
+function getEmailVerificationLink(token) {
+  const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
+  return `${frontendUrl.replace(/\/+$/, '')}/verify-email?token=${token}`;
+}
+
+function getEmailDeliveryErrorMessage(error) {
+  if (error.code === 'EAUTH' || Number(error.responseCode) === 535) {
+    return 'Gmail rejected the SMTP sign-in. Check that SMTP_USER is the full Gmail address and SMTP_PASS is a current Google App Password (not your regular Gmail password).';
+  }
+  return 'The verification email could not be sent. Please check the mail server settings and try again.';
 }
 
 // POST /api/auth/register
@@ -63,27 +82,46 @@ exports.register = async (req, res) => {
     }
 
     const password_hash = await bcrypt.hash(password, 10);
+    const { token, tokenHash } = createEmailVerificationToken();
 
     const [result] = await pool.query(
-      'INSERT INTO users (name, email, phone, password_hash, role) VALUES (?, ?, ?, ?, ?)',
-      [normalizedName, normalizedEmail, normalizedPhone, password_hash, 'customer']
+      `INSERT INTO users (
+         name, email, phone, password_hash, role, email_verified,
+         email_verification_token_hash, email_verification_expires, email_verification_sent_at
+       )
+       VALUES (?, ?, ?, ?, 'customer', FALSE, ?, DATE_ADD(UTC_TIMESTAMP(), INTERVAL ${EMAIL_VERIFICATION_TTL_HOURS} HOUR), UTC_TIMESTAMP())`,
+      [normalizedName, normalizedEmail, normalizedPhone, password_hash, tokenHash]
     );
 
-    const user = {
-      user_id: result.insertId,
-      name: normalizedName,
-      email: normalizedEmail,
-      phone: normalizedPhone,
-      role: 'customer',
-    };
-
-    const token = signToken(user);
-    res.cookie('token', token, cookieOptions());
+    let emailPreviewUrl;
+    try {
+      const info = await sendEmailVerificationEmail({
+        to: normalizedEmail,
+        name: normalizedName,
+        verificationLink: getEmailVerificationLink(token),
+      });
+      emailPreviewUrl = info.previewUrl;
+    } catch (mailError) {
+      await pool.query(
+        `UPDATE users
+         SET email_verification_token_hash = NULL,
+             email_verification_expires = NULL,
+             email_verification_sent_at = NULL
+         WHERE user_id = ? AND email_verification_token_hash = ?`,
+        [result.insertId, tokenHash]
+      );
+      console.error('Email verification delivery failed:', mailError);
+      return res.status(503).json({
+        error: `Your account was created, but ${getEmailDeliveryErrorMessage(mailError)}`,
+        email: normalizedEmail,
+        verificationPending: true,
+      });
+    }
 
     return res.status(201).json({
-      message: 'User registered successfully',
-      user,
-      ...(IS_PROD ? {} : { token }),
+      message: 'Check your email for a verification link before signing in.',
+      email: normalizedEmail,
+      ...(!IS_PROD && emailPreviewUrl ? { emailPreviewUrl } : {}),
     });
   } catch (err) {
     console.error('Register error:', err);
@@ -104,7 +142,7 @@ exports.login = async (req, res) => {
 
     const [rows] = await pool.query(
       `SELECT user_id, name, email, phone, role, manager_id,
-              password_hash, failed_attempts, lock_until, last_failed_at
+              password_hash, email_verified, failed_attempts, lock_until, last_failed_at
        FROM users WHERE email = ?`,
       [email.trim().toLowerCase()]
     );
@@ -173,6 +211,13 @@ exports.login = async (req, res) => {
       });
     }
 
+    if (user.role === 'customer' && !user.email_verified) {
+      return res.status(403).json({
+        error: 'Please verify your email before signing in.',
+        code: 'EMAIL_NOT_VERIFIED',
+      });
+    }
+
     await pool.query(
       'UPDATE users SET failed_attempts = 0, lock_until = NULL, last_failed_at = NULL WHERE user_id = ?',
       [user.user_id]
@@ -198,6 +243,104 @@ exports.login = async (req, res) => {
   } catch (err) {
     console.error('Login error:', err);
     return res.status(500).json({ error: 'Internal server error' });
+  }
+};
+
+// POST /api/auth/verify-email
+exports.verifyEmail = async (req, res) => {
+  try {
+    const { token } = req.body;
+    if (typeof token !== 'string' || !/^[a-f0-9]{64}$/i.test(token)) {
+      return res.status(400).json({ error: 'This verification link is invalid or has expired.' });
+    }
+
+    const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
+    const [result] = await pool.query(
+      `UPDATE users
+       SET email_verified = TRUE,
+           email_verification_token_hash = NULL,
+           email_verification_expires = NULL,
+           email_verification_sent_at = NULL
+       WHERE email_verification_token_hash = ?
+         AND email_verification_expires > UTC_TIMESTAMP()
+         AND role = 'customer'
+         AND email_verified = FALSE`,
+      [tokenHash]
+    );
+
+    if (result.affectedRows !== 1) {
+      return res.status(400).json({ error: 'This verification link is invalid or has expired.' });
+    }
+
+    return res.status(200).json({ message: 'Your email has been verified. You can now sign in.' });
+  } catch (err) {
+    console.error('Email verification error:', err);
+    return res.status(500).json({ error: 'Unable to verify your email right now. Please try again.' });
+  }
+};
+
+// POST /api/auth/resend-verification
+exports.resendEmailVerification = async (req, res) => {
+  const genericMessage = 'If an unverified account exists for that email, a verification link will be sent.';
+
+  try {
+    const email = typeof req.body.email === 'string' ? req.body.email.trim().toLowerCase() : '';
+    if (!EMAIL_REGEX.test(email)) {
+      return res.status(400).json({ error: 'Enter a valid email address.' });
+    }
+
+    const [rows] = await pool.query(
+      'SELECT user_id, name, email FROM users WHERE email = ? AND role = ? AND email_verified = FALSE',
+      [email, 'customer']
+    );
+    if (rows.length === 0) {
+      return res.status(200).json({ message: genericMessage });
+    }
+
+    const user = rows[0];
+    const { token, tokenHash } = createEmailVerificationToken();
+    const [updateResult] = await pool.query(
+      `UPDATE users
+       SET email_verification_token_hash = ?,
+           email_verification_expires = DATE_ADD(UTC_TIMESTAMP(), INTERVAL ${EMAIL_VERIFICATION_TTL_HOURS} HOUR),
+           email_verification_sent_at = UTC_TIMESTAMP()
+       WHERE user_id = ?
+         AND email_verified = FALSE
+         AND (
+           email_verification_sent_at IS NULL
+           OR email_verification_sent_at <= DATE_SUB(UTC_TIMESTAMP(), INTERVAL ${EMAIL_VERIFICATION_RESEND_COOLDOWN_SECONDS} SECOND)
+         )`,
+      [tokenHash, user.user_id]
+    );
+    if (updateResult.affectedRows !== 1) {
+      return res.status(200).json({ message: genericMessage });
+    }
+
+    try {
+      const info = await sendEmailVerificationEmail({
+        to: user.email,
+        name: user.name,
+        verificationLink: getEmailVerificationLink(token),
+      });
+      return res.status(200).json({
+        message: genericMessage,
+        ...(!IS_PROD && info.previewUrl ? { emailPreviewUrl: info.previewUrl } : {}),
+      });
+    } catch (mailError) {
+      await pool.query(
+        `UPDATE users
+         SET email_verification_token_hash = NULL,
+             email_verification_expires = NULL,
+             email_verification_sent_at = NULL
+         WHERE user_id = ? AND email_verification_token_hash = ?`,
+        [user.user_id, tokenHash]
+      );
+      console.error('Email verification resend failed:', mailError);
+      return res.status(503).json({ error: getEmailDeliveryErrorMessage(mailError) });
+    }
+  } catch (err) {
+    console.error('Resend email verification error:', err);
+    return res.status(500).json({ error: 'Unable to resend the verification email right now. Please try again.' });
   }
 };
 

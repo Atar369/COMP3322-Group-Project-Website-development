@@ -420,6 +420,10 @@
   font: inherit;
   font-weight: 600;
   cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  text-decoration: none;
 }
 
 .cl-login01__ghost:hover {

@@ -20,17 +20,23 @@ export function AuthProvider({ children }) {
       setUser(res.data.user);
       return { user: res.data.user };
     } catch (err) {
-      return { error: err.response?.data?.error || 'Login failed' };
+      return {
+        error: err.response?.data?.error || 'Login failed',
+        code: err.response?.data?.code,
+      };
     }
   }
 
   async function register(name, email, phone, password) {
     try {
       const res = await api.post('/auth/register', { name, email, phone, password });
-      setUser(res.data.user);
-      return { user: res.data.user };
+      return { email: res.data.email, message: res.data.message, emailPreviewUrl: res.data.emailPreviewUrl };
     } catch (err) {
-      return { error: err.response?.data?.error || 'Registration failed' };
+      return {
+        error: err.response?.data?.error || 'Registration failed',
+        email: err.response?.data?.email,
+        verificationPending: err.response?.data?.verificationPending,
+      };
     }
   }
 
