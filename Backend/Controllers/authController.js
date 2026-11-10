@@ -74,10 +74,20 @@ exports.register = async (req, res) => {
     }
 
     const [existing] = await pool.query(
-      'SELECT user_id FROM users WHERE email = ? OR phone = ?',
+      'SELECT user_id, email, role, account_disabled FROM users WHERE email = ? OR phone = ?',
       [normalizedEmail, normalizedPhone]
     );
     if (existing.length > 0) {
+      const disabledEmail = existing.find(
+        user => String(user.email).toLowerCase() === normalizedEmail
+          && user.role === 'customer'
+          && user.account_disabled
+      );
+      if (disabledEmail) {
+        return res.status(409).json({
+          error: 'This email belongs to an account disabled after reaching the booking cancellation limit and cannot be registered again.',
+        });
+      }
       return res.status(409).json({ error: 'Email or phone number already registered' });
     }
 
@@ -142,7 +152,8 @@ exports.login = async (req, res) => {
 
     const [rows] = await pool.query(
       `SELECT user_id, name, email, phone, role, manager_id,
-              password_hash, email_verified, failed_attempts, lock_until, last_failed_at
+              password_hash, email_verified, account_disabled, failed_attempts, lock_until, last_failed_at,
+              (SELECT COUNT(*) FROM booking_cancellation_flags f WHERE f.user_id = users.user_id) AS cancellation_flags
        FROM users WHERE email = ?`,
       [email.trim().toLowerCase()]
     );
@@ -211,6 +222,13 @@ exports.login = async (req, res) => {
       });
     }
 
+    if (user.role === 'customer' && user.account_disabled) {
+      return res.status(403).json({
+        error: 'Your account has been disabled after reaching 4 booking cancellation flags. This email cannot be used to register another account.',
+        code: 'ACCOUNT_DISABLED',
+      });
+    }
+
     if (user.role === 'customer' && !user.email_verified) {
       return res.status(403).json({
         error: 'Please verify your email before signing in.',
@@ -230,6 +248,7 @@ exports.login = async (req, res) => {
       phone: user.phone,
       role: user.role,
       manager_id: user.manager_id,
+      cancellation_flags: Number(user.cancellation_flags),
     };
 
     const token = signToken(safeUser);
@@ -402,7 +421,9 @@ exports.createManager = async (req, res) => {
 exports.me = async (req, res) => {
   try {
     const [rows] = await pool.query(
-      'SELECT user_id, name, email, phone, role, manager_id, created_at FROM users WHERE user_id = ?',
+      `SELECT user_id, name, email, phone, role, manager_id, created_at, account_disabled,
+              (SELECT COUNT(*) FROM booking_cancellation_flags f WHERE f.user_id = users.user_id) AS cancellation_flags
+       FROM users WHERE user_id = ?`,
       [req.user.user_id]
     );
     if (rows.length === 0) {

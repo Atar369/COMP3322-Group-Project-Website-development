@@ -16,9 +16,10 @@ async function markExpiredBookingsNoShow() {
 }
 
 async function create(request, response) {
-  const {user_id, booking_date, booking_time, party_size, special_request, pre_order} = request.body;
+  const {booking_date, booking_time, party_size, special_request, pre_order} = request.body;
+  const user_id = request.user.user_id;
 
-  if (!user_id || !booking_date || !booking_time || !party_size) {
+  if (!booking_date || !booking_time || !party_size) {
     return response.status(400).json({error: "Please fill in all required booking fields."});
   }
 
@@ -162,6 +163,9 @@ async function availability(request, response) {
 // Add a new function to get all bookings for a specific user (manager view)
 async function listByUser(request, response) {
   const { user_id } = request.params;
+  if (Number(user_id) !== Number(request.user.user_id)) {
+    return response.status(404).json({error: "Bookings not found."});
+  }
   try {
     const [rows] = await db.query(
       `SELECT b.booking_id, b.user_id, b.table_id, t.table_number,
@@ -207,7 +211,7 @@ async function cancel(request, response) {
     await connection.beginTransaction();
 
     const [bookings] = await connection.query(
-      `SELECT table_id, status FROM bookings WHERE booking_id = ? FOR UPDATE`,
+      `SELECT user_id, table_id, status FROM bookings WHERE booking_id = ? FOR UPDATE`,
       [id]
     );
 
@@ -217,6 +221,12 @@ async function cancel(request, response) {
     }
 
     const booking = bookings[0];
+    const isCustomerCancellation = request.user.role === 'customer';
+
+    if (isCustomerCancellation && Number(booking.user_id) !== Number(request.user.user_id)) {
+      await connection.rollback();
+      return response.status(404).json({error: "Booking not found."});
+    }
 
     if (booking.status !== 'booked') {
       await connection.rollback();
@@ -224,6 +234,22 @@ async function cancel(request, response) {
     }
 
     const table_id = booking.table_id;
+
+    let cancellationFlags = null;
+    let accountDisabled = false;
+    if (isCustomerCancellation) {
+      const [users] = await connection.query(
+        'SELECT account_disabled FROM users WHERE user_id = ? FOR UPDATE',
+        [request.user.user_id]
+      );
+      if (users.length === 0 || users[0].account_disabled) {
+        await connection.rollback();
+        return response.status(403).json({
+          error: 'Your account is disabled and can no longer cancel bookings.',
+          code: 'ACCOUNT_DISABLED',
+        });
+      }
+    }
 
     const [result] = await connection.query(
       `UPDATE bookings SET status = 'cancelled' WHERE booking_id = ? AND status = 'booked'`,
@@ -235,6 +261,27 @@ async function cancel(request, response) {
       return response.status(404).json({error: "Booking not found or already inactive."});
     }
 
+    if (isCustomerCancellation) {
+      await connection.query(
+        'INSERT INTO booking_cancellation_flags (booking_id, user_id) VALUES (?, ?)',
+        [id, request.user.user_id]
+      );
+
+      const [flagRows] = await connection.query(
+        'SELECT COUNT(*) AS cancellation_flags FROM booking_cancellation_flags WHERE user_id = ?',
+        [request.user.user_id]
+      );
+      cancellationFlags = Number(flagRows[0].cancellation_flags);
+      accountDisabled = cancellationFlags >= 4;
+
+      if (accountDisabled) {
+        await connection.query(
+          'UPDATE users SET account_disabled = TRUE WHERE user_id = ?',
+          [request.user.user_id]
+        );
+      }
+    }
+
     if (table_id) {
       await connection.query(
         `UPDATE restaurant_tables SET status = 'available' WHERE table_id = ?`,
@@ -243,7 +290,20 @@ async function cancel(request, response) {
     }
 
     await connection.commit();
-    return response.json({message: "Booking cancelled."});
+    if (isCustomerCancellation && accountDisabled) {
+      return response.json({
+        message: 'Booking cancelled. You have received 4 cancellation flags, so your account has been disabled. This email cannot be used to register another account.',
+        cancellationFlags,
+        accountDisabled,
+      });
+    }
+    return response.json({
+      message: isCustomerCancellation
+        ? `Booking cancelled. This is cancellation flag ${cancellationFlags} of 4.`
+        : "Booking cancelled.",
+      cancellationFlags,
+      accountDisabled,
+    });
 
   } catch (error) {
 

@@ -605,6 +605,15 @@ a { color: inherit; }
 }
 .customer-history-page { max-width: 1380px; }
 .customer-history-intro { color: #6b6558; font-size: 0.85rem; margin: -4px 0 20px; }
+.booking-cancellation-notice {
+  margin: 0 0 20px;
+  padding: 12px 16px;
+  border-left: 3px solid var(--mustard);
+  background: #f6edda;
+  color: #514936;
+  font-size: 0.88rem;
+}
+.booking-cancellation-notice strong { color: var(--ink); }
 .customer-order-history-card { grid-template-columns: minmax(150px, 0.9fr) minmax(280px, 1.7fr) minmax(140px, 0.8fr); }
 .customer-order-history-card .order-history-total { align-items: flex-end; }
 .manager-bookings-page { max-width: 1380px; }

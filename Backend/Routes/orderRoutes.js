@@ -3,14 +3,14 @@ const router = express.Router();
 const orderController = require('../Controllers/orderController');
 const { verifyToken, requireRole } = require('../middleware/authMiddleware');
 
-router.get('/', orderController.listAll);
-router.post('/', orderController.create);
+router.get('/', verifyToken, requireRole('manager'), orderController.listAll);
+router.post('/', verifyToken, requireRole('customer'), orderController.create);
 router.get('/manager/history', verifyToken, requireRole('manager'), orderController.listManagerHistory);
-router.get('/history/:user_id', orderController.listHistoryByUser);
-router.get('/user/:user_id', orderController.listByUser);
-router.get('/:id', orderController.getOne);
-router.patch('/:id/status', orderController.advanceStatus);
-router.patch('/:id/finish', orderController.finishOrder);
-router.patch('/:id/pay', orderController.markPaid);
+router.get('/history/:user_id', verifyToken, requireRole('customer'), orderController.listHistoryByUser);
+router.get('/user/:user_id', verifyToken, requireRole('customer'), orderController.listByUser);
+router.get('/:id', verifyToken, requireRole('customer'), orderController.getOne);
+router.patch('/:id/status', verifyToken, requireRole('manager'), orderController.advanceStatus);
+router.patch('/:id/finish', verifyToken, requireRole('customer'), orderController.finishOrder);
+router.patch('/:id/pay', verifyToken, requireRole('manager'), orderController.markPaid);
 
 module.exports = router;

@@ -1,13 +1,15 @@
-import { Link } from 'react-router-dom';
 import { useState, useEffect, useMemo } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import Pagination, { usePagination } from '../components/Pagination';
 import { compareBookingDateTime } from '../utils/restaurantTime';
 
 export default function BookingManagement() {
-  const { user } = useAuth();
+  const { user, logout, updateUser } = useAuth();
+  const navigate = useNavigate();
   const [userBookings, setUserBookings] = useState([]);
   const [error, setError] = useState('');
+  const [cancelMessage, setCancelMessage] = useState('');
   const [editingId, setEditingId] = useState(null);
   const [menuItems, setMenuItems] = useState([]);
   const [preOrder, setPreOrder] = useState([]);
@@ -53,10 +55,26 @@ export default function BookingManagement() {
 
   async function handleCancel(bookingId) {
     setError('');
+    setCancelMessage('');
+    const confirmed = window.confirm(
+      'Cancel this confirmed booking? Each customer-cancelled confirmed booking adds one permanent flag. At 4 flags, your account will be disabled and this email cannot be used to register again.'
+    );
+    if (!confirmed) return;
+
     try {
       const res = await fetch(`/api/booking/${bookingId}/cancel`, { method: 'PATCH' });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) { setError(data.error || 'Could not cancel booking.'); return; }
+      if (Number.isInteger(data.cancellationFlags)) {
+        updateUser({ cancellation_flags: data.cancellationFlags });
+      }
+      if (data.accountDisabled) {
+        window.alert(data.message);
+        await logout();
+        navigate('/login/customer', { replace: true });
+        return;
+      }
+      setCancelMessage(data.message);
       load();
     } catch {
       setError('Could not reach the server.');
@@ -178,7 +196,12 @@ export default function BookingManagement() {
     <div className="page customer-history-page booking-management-page">
       <h1>Booking Management</h1>
       <p className="customer-history-intro">Manage upcoming bookings and edit their pre-order courses.</p>
+      <p className="booking-cancellation-notice">
+        Booking cancellation flags: <strong>{user?.cancellation_flags || 0} / 4</strong>. Flags do not expire.
+        At 4 flags, your account will be disabled and the email cannot be used to register again.
+      </p>
       {error && <p className="error-text">{error}</p>}
+      {cancelMessage && <p role="status" style={{ color: 'var(--green)', fontWeight: 600 }}>{cancelMessage}</p>}
       {saveMsg && <p style={{ color: 'var(--green)', fontWeight: 600 }}>{saveMsg}</p>}
       <div className="manager-orders-workspace">
         <aside className="manager-orders-filter-panel" aria-label="Filter active bookings">

@@ -2,13 +2,13 @@ const express = require("express");
 const router = express.Router();
 const bookingController = require("../Controllers/bookingController");
 
-const { protect, managerOnly } = require("../middleware/authMiddleware");
+const { protect, requireRole, managerOnly } = require("../middleware/authMiddleware");
 
 router.get("/tables", bookingController.tables);
 router.get("/availability", bookingController.availability);
 router.get("/menu", bookingController.menu);
-router.post("/", bookingController.create);
-router.get("/user/:user_id", bookingController.listByUser);
+router.post("/", protect, requireRole("customer"), bookingController.create);
+router.get("/user/:user_id", protect, requireRole("customer"), bookingController.listByUser);
 
 router.get("/all", protect, managerOnly, bookingController.listAll);
 router.patch("/:id/cancel", protect, bookingController.cancel);

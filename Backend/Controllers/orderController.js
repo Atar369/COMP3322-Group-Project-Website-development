@@ -153,9 +153,10 @@ async function listManagerHistory(req, res) {
 
 // POST /api/orders — place a new order
 async function create(req, res) {
-  const { user_id, booking_id, queue_id, items } = req.body;
-  if (!user_id || !items || !Array.isArray(items) || items.length === 0) {
-    return res.status(400).json({ error: 'user_id and items are required.' });
+  const { booking_id, queue_id, items } = req.body;
+  const user_id = req.user.user_id;
+  if (!items || !Array.isArray(items) || items.length === 0) {
+    return res.status(400).json({ error: 'items are required.' });
   }
   if (Boolean(booking_id) === Boolean(queue_id)) {
     return res.status(400).json({ error: 'Exactly one seated booking or queue entry is required.' });
@@ -261,7 +262,7 @@ async function getOne(req, res) {
   const { id } = req.params;
   try {
     const [orders] = await db.query(
-      `SELECT o.order_id, o.booking_id, o.queue_id, o.order_time,
+      `SELECT o.order_id, o.user_id, o.booking_id, o.queue_id, o.order_time,
               o.status, o.total_amount, o.payment_status,
               b.booking_date, b.booking_time, bt.table_number,
               b.status AS booking_status, b.party_size AS booking_party,
@@ -274,6 +275,9 @@ async function getOne(req, res) {
       [id]
     );
     if (!orders.length) return res.status(404).json({ error: 'Order not found.' });
+    if (Number(orders[0].user_id) !== Number(req.user.user_id)) {
+      return res.status(404).json({ error: 'Order not found.' });
+    }
     const [items] = await db.query(
       `SELECT oi.order_item_id, oi.item_id, oi.quantity, oi.unit_price, oi.subtotal, m.name
        FROM order_items oi JOIN menu_items m ON m.item_id = oi.item_id
@@ -290,6 +294,9 @@ async function getOne(req, res) {
 // GET /api/orders/user/:user_id — orders for a specific customer
 async function listByUser(req, res) {
   const { user_id } = req.params;
+  if (Number(user_id) !== Number(req.user.user_id)) {
+    return res.status(404).json({ error: 'Orders not found.' });
+  }
   try {
     const [rows] = await db.query(
       `SELECT o.order_id, o.user_id, o.booking_id, o.queue_id, o.order_time,
@@ -317,6 +324,9 @@ async function listByUser(req, res) {
 // GET /api/orders/history/:user_id — full payment history for a customer
 async function listHistoryByUser(req, res) {
   const { user_id } = req.params;
+  if (Number(user_id) !== Number(req.user.user_id)) {
+    return res.status(404).json({ error: 'Order history not found.' });
+  }
   try {
     const [rows] = await db.query(
       `SELECT o.order_id, o.booking_id, o.queue_id, o.order_time, o.updated_at,
@@ -364,8 +374,9 @@ async function finishOrder(req, res) {
   const { id } = req.params;
   try {
     const [result] = await db.query(
-      `UPDATE orders SET payment_status = 'pending_payment' WHERE order_id = ? AND status = 'ready'`,
-      [id]
+      `UPDATE orders SET payment_status = 'pending_payment'
+       WHERE order_id = ? AND user_id = ? AND status = 'ready'`,
+      [id, req.user.user_id]
     );
     if (!result.affectedRows) return res.status(400).json({ error: 'Order not ready or already processed.' });
     return res.json({ message: 'Manager has been notified to collect payment.' });

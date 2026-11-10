@@ -16,6 +16,7 @@ CREATE TABLE users (
   email_verification_token_hash CHAR(64) NULL,
   email_verification_expires DATETIME NULL,
   email_verification_sent_at DATETIME NULL,
+  account_disabled BOOLEAN NOT NULL DEFAULT FALSE,
   failed_attempts INT UNSIGNED NOT NULL DEFAULT 0,
   lock_until DATETIME NULL,
   last_failed_at DATETIME NULL,
@@ -128,6 +129,20 @@ CREATE TABLE bookings (
     ON DELETE RESTRICT ON UPDATE RESTRICT,
   CONSTRAINT chk_bookings_party CHECK (party_size > 0),
   CONSTRAINT chk_bookings_status CHECK (status IN ('booked', 'cancelled', 'no_show', 'serving', 'finished', 'paid'))
+);
+
+CREATE TABLE booking_cancellation_flags (
+  flag_id INT UNSIGNED NOT NULL AUTO_INCREMENT,
+  booking_id INT UNSIGNED NOT NULL,
+  user_id INT UNSIGNED NOT NULL,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (flag_id),
+  UNIQUE KEY uq_booking_cancellation_flag_booking (booking_id),
+  KEY idx_booking_cancellation_flags_user (user_id),
+  CONSTRAINT fk_booking_cancellation_flags_booking FOREIGN KEY (booking_id) REFERENCES bookings (booking_id)
+    ON DELETE RESTRICT ON UPDATE RESTRICT,
+  CONSTRAINT fk_booking_cancellation_flags_user FOREIGN KEY (user_id) REFERENCES users (user_id)
+    ON DELETE RESTRICT ON UPDATE RESTRICT
 );
 
 CREATE TABLE queue_entries (

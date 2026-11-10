@@ -52,6 +52,14 @@ export default function ProfilePage() {
   return (
     <div className="page">
       <h1>Personal Information</h1>
+      {user?.role === 'customer' && (
+        <div className="card" style={{ marginBottom: 20 }}>
+          <strong>Booking cancellation flags: {user.cancellation_flags || 0} / 4</strong>
+          <p style={{ margin: '6px 0 0' }}>
+            Flags for cancelling confirmed bookings do not expire. At 4 flags, your account will be disabled and this email cannot be used to register another account.
+          </p>
+        </div>
+      )}
       {isEditing ? (
         <form onSubmit={e => { e.preventDefault(); handleSave(); }}>
           <div className="field">
