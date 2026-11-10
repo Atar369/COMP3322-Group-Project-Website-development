@@ -42,11 +42,36 @@ export default function HomePage() {
           {user ? (
             <button className="hero-btn" onClick={() => navigate('/view-menu')}>VIEW OUR MENU →</button>
           ) : (
-            <button className="hero-btn" onClick={() => navigate('/welcome')}>EXPLORE THE MENU →</button>
+            <div className="hero-member-actions">
+              <p>Join free to book a table, join the queue, and order from your table.</p>
+              <div className="hero-action-buttons">
+                <button className="hero-btn hero-btn-register" onClick={() => navigate('/register/customer')}>
+                  REGISTER FREE
+                </button>
+                <button className="hero-btn hero-btn-login" onClick={() => navigate('/login/customer')}>
+                  CUSTOMER LOGIN
+                </button>
+              </div>
+            </div>
           )}
         </div>
         <span className="hero-scroll-cue" aria-hidden="true">SCROLL TO DISCOVER <span>↓</span></span>
       </section>
+
+      {/* Quick Actions for logged-in customers */}
+      {user?.role === 'customer' && (
+        <section className="home-section dark-section home-quick-actions">
+          <div className="section-inner" style={{ textAlign: 'center' }}>
+            <span className="section-label">READY TO DINE?</span>
+            <h2>What would you like to do?</h2>
+            <div style={{ display: 'flex', gap: 16, justifyContent: 'center', flexWrap: 'wrap', marginTop: 24 }}>
+              <button className="hero-btn" onClick={() => navigate('/booking')}>Book a Table →</button>
+              <button className="hero-btn outline" onClick={() => navigate('/queue')}>Join Queue →</button>
+              <button className="hero-btn outline" onClick={() => navigate('/view-menu')}>Browse Menu →</button>
+            </div>
+          </div>
+        </section>
+      )}
 
       {/* Info Bar */}
       <section className="info-bar">
@@ -174,21 +199,6 @@ export default function HomePage() {
           </div>
         </div>
       </section>
-
-      {/* Quick Actions for logged-in users */}
-      {user?.role === 'customer' && (
-        <section className="home-section dark-section">
-          <div className="section-inner" style={{ textAlign: 'center' }}>
-            <span className="section-label">READY TO DINE?</span>
-            <h2>What would you like to do?</h2>
-            <div style={{ display: 'flex', gap: 16, justifyContent: 'center', flexWrap: 'wrap', marginTop: 24 }}>
-              <button className="hero-btn" onClick={() => navigate('/booking')}>Book a Table →</button>
-              <button className="hero-btn outline" onClick={() => navigate('/queue')}>Join Queue →</button>
-              <button className="hero-btn outline" onClick={() => navigate('/view-menu')}>Browse Menu →</button>
-            </div>
-          </div>
-        </section>
-      )}
 
       {/* Footer */}
       <footer className="home-footer">

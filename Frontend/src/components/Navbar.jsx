@@ -48,7 +48,9 @@ export default function Navbar() {
       <div className="nav-links">
         {!user && <>
           <Link to="/home">Home</Link>
-          <Link to="/welcome">Log in</Link>
+          <Link to="/login/customer">Customer Login</Link>
+          <Link className="nav-register" to="/register/customer">Customer Register</Link>
+          <Link to="/login/manager">Staff Login</Link>
         </>}
 
         {user?.role === 'customer' && <>
