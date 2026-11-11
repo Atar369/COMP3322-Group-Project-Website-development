@@ -39,8 +39,11 @@ async function create(request, response) {
 
   // Last entry 21:00; orders must be placed before 21:15
   const [hStr, mStr] = booking_time.split(':');
-  if (parseInt(hStr, 10) > 21 || (parseInt(hStr, 10) === 21 && parseInt(mStr, 10) > 0)) {
-    return response.status(400).json({error: "Last entry is 21:00. No bookings accepted after 21:00."});
+  const hr = parseInt(hStr, 10);
+  const min = parseInt(mStr, 10);
+
+  if (hr < 10 || hr > 21 || (hr === 21 && min > 0)) {
+    return response.status(400).json({error: "Bookings can only be made between 10:00 and 21:00."});
   }
 
   if (!isAtLeastRestaurantTomorrow(booking_date)) {
@@ -335,8 +338,11 @@ async function edit(request, response) {
   }
 
   const [hStr, mStr] = booking_time.split(':');
-  if (parseInt(hStr, 10) > 21 || (parseInt(hStr, 10) === 21 && parseInt(mStr, 10) > 0)) {
-    return response.status(400).json({error: "Last entry is 21:00. No bookings accepted after 21:00."});
+  const hr = parseInt(hStr, 10);
+  const min = parseInt(mStr, 10);
+
+  if (hr < 10 || hr > 21 || (hr === 21 && min > 0)) {
+    return response.status(400).json({error: "Bookings can only be made between 10:00 and 21:00."});
   }
 
   if (!isAtLeastRestaurantTomorrow(booking_date)) {
