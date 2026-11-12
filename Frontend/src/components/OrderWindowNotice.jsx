@@ -10,15 +10,16 @@ export default function OrderWindowNotice({ orderWindow }) {
 
   return (
     <div style={{ fontSize: '0.85rem', fontWeight: 600, margin: '12px 0' }}>
-      {orderWindow.orderWindowEnded ? (
+      {orderWindow.beforeOpening ? (
+        <p style={{ color: 'var(--rust)', margin: 0 }}>Order placement opens at 10:00 AM.</p>
+      ) : orderWindow.cutoffReached ? (
+        <p style={{ color: 'var(--rust)', margin: 0 }}>Order placement ends at 9:45 PM.</p>
+      ) : orderWindow.orderWindowEnded ? (
         <p style={{ color: 'var(--rust)', margin: 0 }}>Last order ended</p>
       ) : (
-        <p style={{ color: orderWindow.cutoffReached ? 'var(--rust)' : 'var(--green)', margin: 0 }}>
+        <p style={{ color: 'var(--green)', margin: 0 }}>
           {orderWindow.countdown}
         </p>
-      )}
-      {orderWindow.cutoffReached && (
-        <p style={{ color: 'var(--rust)', margin: '4px 0 0' }}>Order placement is closed for the day after 21:00.</p>
       )}
     </div>
   );

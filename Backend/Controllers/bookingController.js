@@ -2,6 +2,12 @@ const db = require("../db")
 const { isCheckInWindowOpen } = require('../utils/bookingAttendance');
 const { isValidDate, isValidTime, isValidPartySize } = require('../utils/validators');
 const { isAtLeastRestaurantTomorrow } = require('../utils/restaurantTime');
+const { isRestaurantEntryCutoffReached } = require('../utils/orderingWindow');
+
+function isAfterLastBookingTime(time) {
+  const [hour, minute, second = '0'] = time.split(':').map(Number);
+  return hour > 21 || (hour === 21 && (minute > 0 || second > 0));
+}
 
 async function markExpiredBookingsNoShow() {
   await db.query(
@@ -37,10 +43,13 @@ async function create(request, response) {
 
   const size = Number(party_size);
 
-  // Last entry 21:00; orders must be placed before 21:15
-  const [hStr, mStr] = booking_time.split(':');
-  if (parseInt(hStr, 10) > 21 || (parseInt(hStr, 10) === 21 && parseInt(mStr, 10) > 0)) {
-    return response.status(400).json({error: "Last entry is 21:00. No bookings accepted after 21:00."});
+  // The final booking is 21:00–22:00; queue entry and calls still stop at 21:00.
+  const [hStr] = booking_time.split(':');
+  if (parseInt(hStr, 10) < 10) {
+    return response.status(400).json({error: "The restaurant opens at 10:00. Bookings are not available before opening."});
+  }
+  if (isAfterLastBookingTime(booking_time)) {
+    return response.status(400).json({error: "The last booking slot starts at 21:00 (9:00 PM) and ends at closing, 22:00 (10:00 PM)."});
   }
 
   if (!isAtLeastRestaurantTomorrow(booking_date)) {
@@ -132,6 +141,15 @@ async function availability(request, response) {
   const size = Number(party_size);
   if (!date || !time || !size) {
     return response.status(400).json({error: "date, time and party_size are required."});
+  }
+  if (!isValidTime(time)) {
+    return response.status(400).json({error: "Invalid booking time format. Use HH:mm."});
+  }
+  if (parseInt(time.split(':')[0], 10) < 10) {
+    return response.status(400).json({error: "The restaurant opens at 10:00. Bookings are not available before opening."});
+  }
+  if (isAfterLastBookingTime(time)) {
+    return response.status(400).json({error: "The last booking slot starts at 21:00 (9:00 PM) and ends at closing, 22:00 (10:00 PM)."});
   }
 
   const maxCap = size + 2;
@@ -329,9 +347,12 @@ async function edit(request, response) {
     return response.status(400).json({error: "Invalid booking date or time."});
   }
 
-  const [hStr, mStr] = booking_time.split(':');
-  if (parseInt(hStr, 10) > 21 || (parseInt(hStr, 10) === 21 && parseInt(mStr, 10) > 0)) {
-    return response.status(400).json({error: "Last entry is 21:00. No bookings accepted after 21:00."});
+  const [hStr] = booking_time.split(':');
+  if (parseInt(hStr, 10) < 10) {
+    return response.status(400).json({error: "The restaurant opens at 10:00. Bookings are not available before opening."});
+  }
+  if (isAfterLastBookingTime(booking_time)) {
+    return response.status(400).json({error: "The last booking slot starts at 21:00 (9:00 PM) and ends at closing, 22:00 (10:00 PM)."});
   }
 
   if (!isAtLeastRestaurantTomorrow(booking_date)) {
@@ -482,6 +503,11 @@ async function arrive(request, response) {
       return response.status(409).json({error: "Booking is no longer awaiting check-in."});
     }
 
+    const isFinalBooking = String(bookings[0].booking_time).slice(0, 5) === '21:00';
+    if (isRestaurantEntryCutoffReached() && !isFinalBooking) {
+      return response.status(409).json({error: "The last restaurant entry time is 9:00 PM. Check-in is closed for today."});
+    }
+
     if (!isCheckInWindowOpen(bookings[0].booking_date, bookings[0].booking_time)) {
       await markExpiredBookingsNoShow();
       return response.status(409).json({error: "Check-in is available only from the booked time until 15 minutes after."});
@@ -494,12 +520,24 @@ async function arrive(request, response) {
          AND UTC_TIMESTAMP() < DATE_SUB(
            DATE_ADD(TIMESTAMP(booking_date, booking_time), INTERVAL 15 MINUTE),
            INTERVAL 8 HOUR
+         )
+         AND (
+           HOUR(DATE_ADD(UTC_TIMESTAMP(), INTERVAL 8 HOUR)) < 21
+           OR (TIME(booking_time) = '21:00:00'
+               AND UTC_TIMESTAMP() < DATE_SUB(
+                 DATE_ADD(TIMESTAMP(booking_date, booking_time), INTERVAL 15 MINUTE),
+                 INTERVAL 8 HOUR
+               ))
          )`,
       [id]
     );
     if (result.affectedRows === 0) {
       await markExpiredBookingsNoShow();
-      return response.status(409).json({error: "Check-in is available only during the 15 minutes after the booked time."});
+      return response.status(409).json({
+        error: isRestaurantEntryCutoffReached()
+          ? "The last restaurant entry time is 9:00 PM. Check-in is closed for today."
+          : "Check-in is available only during the 15 minutes after the booked time.",
+      });
     }
 
     return response.json({message: "Booking marked as serving."});

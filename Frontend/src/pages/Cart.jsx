@@ -79,7 +79,9 @@ export default function Cart() {
       {!canOrder && (
         <p style={{ color: 'var(--rust)', fontSize: '0.85rem', marginTop: 8 }}>
           {orderWindow.hasOrderContext
-            ? 'Ordering is unavailable because this session has ended, the last-order window is closed, or it is past 21:00.'
+            ? orderWindow.beforeOpening
+              ? 'Order placement opens at 10:00 AM.'
+              : 'Ordering is unavailable because this session has ended, the 45-minute last-order window has closed, or the 9:45 PM order cutoff has passed.'
             : '⚠️ Unlock ordering from the Orders & Cart page first'}
         </p>
       )}

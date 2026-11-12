@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import api from '../../services/api';
 import { socket } from '../../socket';
-import { isLastOrderCutoffReached } from '../../utils/orderingWindow';
+import { isRestaurantEntryCutoffReached } from '../../utils/orderingWindow';
 import { getRestaurantTimestamp } from '../../utils/restaurantTime';
 
 const GROUPS = ['A', 'B', 'C'];
@@ -35,7 +35,7 @@ export default function ManagerQueue() {
 
   const [busy, setBusy] = useState({});
   const [now, setNow] = useState(Date.now());
-  const cutoffReached = isLastOrderCutoffReached(new Date(now));
+  const cutoffReached = isRestaurantEntryCutoffReached(new Date(now));
 
   const isBusy = (group, action) => Boolean(busy[`${group}:${action}`]);
   const setBusyFlag = (group, action, value) => {
@@ -147,7 +147,7 @@ export default function ManagerQueue() {
         Use <strong>Call next</strong> to manually call the next waiting party in a group.
       </p>
       {cutoffReached && (
-        <p className="error-text">Queue calls and seating are closed for the day after 21:00.</p>
+        <p className="error-text">Queue calls and seating stop at 9:00 PM. The restaurant closes at 10:00 PM.</p>
       )}
 
       {error && (

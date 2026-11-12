@@ -3,9 +3,26 @@ import { getRestaurantTimestamp } from './restaurantTime';
 export const ORDER_WINDOW_MS = 45 * 60 * 1000;
 const RESTAURANT_TIME_ZONE = 'Asia/Hong_Kong';
 
-export function isLastOrderCutoffReached(now = new Date()) {
+export function isBeforeRestaurantOpening(now = new Date()) {
+  return getHongKongTimeParts(now).hour < 10;
+}
+
+export function isRestaurantEntryCutoffReached(now = new Date()) {
   const hour = getHongKongTimeParts(now).hour;
   return hour >= 21;
+}
+
+export function isRestaurantClosed(now = new Date()) {
+  return getHongKongTimeParts(now).hour >= 22;
+}
+
+export function isOrderPlacementCutoffReached(now = new Date()) {
+  const { hour, minute } = getHongKongTimeParts(now);
+  return hour > 21 || (hour === 21 && minute >= 45);
+}
+
+export function isQueueEntryWindowOpen(now = new Date()) {
+  return !isBeforeRestaurantOpening(now) && !isRestaurantEntryCutoffReached(now);
 }
 
 function getHongKongTimeParts(now) {
@@ -25,7 +42,7 @@ function getHongKongTimeParts(now) {
 
 export function getQueueCallingCountdown(now = new Date()) {
   const { hour, minute, second } = getHongKongTimeParts(now);
-  if (hour >= 21) return { active: false, stopped: true, remainingMs: 0 };
+  if (isRestaurantEntryCutoffReached(now)) return { active: false, stopped: true, remainingMs: 0 };
   if (hour < 20) return { active: false, stopped: false, remainingMs: 0 };
 
   const secondsUntilCutoff = 21 * 60 * 60 - (hour * 60 * 60 + minute * 60 + second);

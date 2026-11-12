@@ -86,7 +86,7 @@ export default function HomePage() {
           <span className="info-icon">🕐</span>
           <div>
             <strong>OPENING HOURS</strong>
-            <p>11:30 AM – 10:00 PM<br /></p>
+            <p>10:00 AM – 10:00 PM<br /></p>
           </div>
         </div>
         <div className="info-item">
@@ -150,7 +150,7 @@ export default function HomePage() {
               <div className="rule-icon">🔢</div>
               <h3>Walk-in Queue</h3>
               <p>
-                No booking? No problem. Join our digital queue and receive a queue number. When your number is called,
+                No booking? No problem. Join our digital queue from <strong>10:00 AM until 9:00 PM</strong> and receive a queue number. The restaurant closes at 10:00 PM. When your number is called,
                 you'll be seated and can begin ordering from our full menu. Queue groups are categorized by party size:
                 <strong> A</strong> (1–2 guests), <strong>B</strong> (3–6 guests), <strong>C</strong> (7+ guests).
               </p>
@@ -159,7 +159,7 @@ export default function HomePage() {
               <div className="rule-icon">🍽️</div>
               <h3>Ordering</h3>
               <p>
-                Once you've been checked in by our manager — either through your booking or queue — the ordering page unlocks.
+                Once you've been checked in by our manager — either through your booking or queue — you can order within 45 minutes of seating, but no later than <strong>9:45 PM</strong>.
                 Browse our menu, add items to your cart, and place your order directly from your device.
                 <strong> You must have an arrived booking or called queue number to order.</strong>
               </p>
@@ -168,10 +168,8 @@ export default function HomePage() {
               <div className="rule-icon">⏱️</div>
               <h3>1-Hour Dining Window</h3>
               <p>
-                Each dining session lasts <strong>approximately 1 hour</strong>. Our full-course experience — from appetizers
-                to dessert — is thoughtfully designed to be savored within this timeframe. After 1 hour, your session
-                completes automatically and our manager will visit your table for payment. Place orders within 45 minutes
-                after seating; new orders stop at 21:00.
+                Each dining session lasts <strong>approximately 1 hour</strong>. After 1 hour, our manager will visit your table for payment. Place orders within 45 minutes
+                after seating; order placement ends at <strong>9:45 PM</strong>. The restaurant closes at 10:00 PM.
               </p>
             </div>
           </div>

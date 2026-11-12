@@ -5,7 +5,9 @@ import { socket } from '../socket';
 import {
   formatQueueCallingCountdown,
   getQueueCallingCountdown,
-  isLastOrderCutoffReached,
+  isBeforeRestaurantOpening,
+  isQueueEntryWindowOpen,
+  isRestaurantEntryCutoffReached,
 } from '../utils/orderingWindow';
 import {
   formatRestaurantTime,
@@ -67,7 +69,7 @@ export default function Queue() {
     myEntryRef.current = myEntry;
   }, [myEntry]);
 
-  // Timer for the 21:00 cutoff countdown
+  // Timer for the 9:00 PM queue-entry cutoff countdown
   useEffect(() => {
     const timer = setInterval(() => setNow(new Date()), 1000);
     return () => clearInterval(timer);
@@ -147,8 +149,12 @@ export default function Queue() {
   async function handleJoin() {
     setJoinError('');
     setJoinMessage('');
-    if (isLastOrderCutoffReached(now)) {
-      setJoinError('The restaurant stops accepting new queue entries at 21:00. Please try again tomorrow.');
+    if (isBeforeRestaurantOpening(now)) {
+      setJoinError('The restaurant opens at 10:00 AM. Please try again then.');
+      return;
+    }
+    if (isRestaurantEntryCutoffReached(now)) {
+      setJoinError('The last queue entry is at 9:00 PM. Please try again tomorrow.');
       return;
     }
     try {
@@ -197,7 +203,7 @@ export default function Queue() {
       .sort((a, b) => getRestaurantTimestamp(b.called_at) - getRestaurantTimestamp(a.called_at))[0];
   }
 
-  const canJoin = !isLastOrderCutoffReached(now);
+  const canJoin = isQueueEntryWindowOpen(now);
   const callingCountdown = getQueueCallingCountdown(now);
 
   // Display-only values for the ticket
@@ -224,7 +230,7 @@ export default function Queue() {
         <span className="queue-eyebrow">WALK-IN QUEUE</span>
         <h1>Queue</h1>
         <span className="queue-squiggle" aria-hidden="true" />
-        <p className="queue-intro">Once seated, you have 45 minutes to place orders. New orders stop at 21:00.</p>
+        <p className="queue-intro">Join the queue from 10:00 AM to 9:00 PM. The restaurant closes at 10:00 PM. Once seated, you have 45 minutes to place orders, but no later than 9:45 PM.</p>
       </header>
 
       {(callingCountdown.active || callingCountdown.stopped) && (
@@ -269,7 +275,11 @@ export default function Queue() {
           <h2>Join the waiting list</h2>
           <p className="queue-join-text">Enter your party size (1–12 people). Numbers reset daily.</p>
           {!canJoin && (
-            <p className="queue-warning">⏱ Restaurant stops accepting new queue entries at 21:00</p>
+            <p className="queue-warning">
+              ⏱ {isBeforeRestaurantOpening(now)
+                ? 'Queue opens at 10:00 AM.'
+                : 'The last queue entry is at 9:00 PM; the restaurant closes at 10:00 PM.'}
+            </p>
           )}
 
           <div className="queue-stepper" role="group" aria-label="Party size">

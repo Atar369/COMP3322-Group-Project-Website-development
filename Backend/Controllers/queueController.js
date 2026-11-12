@@ -1,5 +1,9 @@
 const db = require('../db');
-const { isLastOrderCutoffReached } = require('../utils/orderingWindow');
+const {
+  isBeforeRestaurantOpening,
+  isRestaurantEntryCutoffReached,
+  isQueueEntryWindowOpen,
+} = require('../utils/orderingWindow');
 const { getRestaurantDateKey, parseUtcDateTime } = require('../utils/restaurantTime');
 
 let socketIo = null;
@@ -101,8 +105,11 @@ async function join(req, res) {
   }
   const partySize = Number(party_size);
 
-  if (isLastOrderCutoffReached()) {
-    return res.status(409).json({ error: 'The restaurant stops accepting new queue entries at 21:00.' });
+  if (!isQueueEntryWindowOpen()) {
+    const error = isRestaurantEntryCutoffReached()
+      ? 'The last queue entry is at 21:00 (9:00 PM). The restaurant closes at 22:00 (10:00 PM).'
+      : 'The restaurant opens at 10:00. Queue entries are not available yet.';
+    return res.status(409).json({ error });
   }
 
   const prefix = getGroupPrefix(partySize);
@@ -221,8 +228,11 @@ async function listByUser(req, res) {
 
 // PATCH /api/queue/:id/call — manager calls a specific queued entry
 async function call(req, res) {
-  if (isLastOrderCutoffReached()) {
-    return res.status(409).json({ error: 'Queue calling is closed for the day after 21:00.' });
+  if (!isQueueEntryWindowOpen()) {
+    const error = isRestaurantEntryCutoffReached()
+      ? 'Queue calling stops at 21:00 (9:00 PM). The restaurant closes at 22:00 (10:00 PM).'
+      : 'Queue calling starts at 10:00.';
+    return res.status(409).json({ error });
   }
   const { id } = req.params;
   const conn = await db.getConnection();
@@ -257,10 +267,18 @@ async function call(req, res) {
       );
     }
 
-    await conn.query(
-      `UPDATE queue_entries SET status = 'called', called_at = UTC_TIMESTAMP() WHERE queue_id = ? AND status = 'queued'`,
+    const [calledResult] = await conn.query(
+      `UPDATE queue_entries SET status = 'called', called_at = UTC_TIMESTAMP()
+       WHERE queue_id = ? AND status = 'queued'
+         AND HOUR(DATE_ADD(UTC_TIMESTAMP(), INTERVAL 8 HOUR)) < 21`,
       [id]
     );
+    if (!calledResult.affectedRows) {
+      await conn.rollback();
+      return isRestaurantEntryCutoffReached()
+        ? res.status(409).json({ error: 'Queue calls stop at the 9:00 PM last-entry time.' })
+        : res.status(409).json({ error: 'This queue entry is no longer waiting to be called.' });
+    }
 
     await conn.commit();
     emit(req, {
@@ -284,18 +302,25 @@ async function call(req, res) {
 
 // PATCH /api/queue/:id/checkin — manager confirms arrival (called -> serving)
 async function checkin(req, res) {
-  if (isLastOrderCutoffReached()) {
-    return res.status(409).json({ error: 'Queue seating is closed for the day after 21:00.' });
+  if (!isQueueEntryWindowOpen()) {
+    const error = isRestaurantEntryCutoffReached()
+      ? 'Queue seating stops at 21:00 (9:00 PM). The restaurant closes at 22:00 (10:00 PM).'
+      : 'Queue seating starts at 10:00.';
+    return res.status(409).json({ error });
   }
   const { id } = req.params;
 
   try {
     const [result] = await db.query(
       `UPDATE queue_entries SET status = 'serving', served_at = UTC_TIMESTAMP()
-       WHERE queue_id = ? AND status = 'called'`,
+       WHERE queue_id = ? AND status = 'called'
+         AND HOUR(DATE_ADD(UTC_TIMESTAMP(), INTERVAL 8 HOUR)) < 21`,
       [id]
     );
     if (!result.affectedRows) {
+      if (isRestaurantEntryCutoffReached()) {
+        return res.status(409).json({ error: 'Queue seating stops at the 9:00 PM last-entry time.' });
+      }
       return res.status(400).json({ error: 'Queue entry not found or not in called state.' });
     }
     emit(req, { action: 'checkin', queueId: Number(id) });
@@ -325,8 +350,8 @@ async function setAutoCall(req, res) {
   if (!isQueueGroup(group) || typeof enabled !== 'boolean') {
     return res.status(400).json({ error: 'A valid group and boolean enabled value are required.' });
   }
-  if (enabled && isLastOrderCutoffReached()) {
-    return res.status(409).json({ error: 'Automatic queue calls are closed for the day after 21:00.' });
+  if (enabled && isRestaurantEntryCutoffReached()) {
+    return res.status(409).json({ error: 'Automatic queue calls stop at 21:00 (9:00 PM). The restaurant closes at 22:00 (10:00 PM).' });
   }
   try {
     await db.query(
@@ -363,8 +388,11 @@ async function findAvailableTable(conn, partySize) {
 }
 
 async function seat(req, res) {
-  if (isLastOrderCutoffReached()) {
-    return res.status(409).json({ error: 'Queue seating is closed for the day after 21:00.' });
+  if (!isQueueEntryWindowOpen()) {
+    const error = isRestaurantEntryCutoffReached()
+      ? 'Queue seating stops at 21:00 (9:00 PM). The restaurant closes at 22:00 (10:00 PM).'
+      : 'Queue seating starts at 10:00.';
+    return res.status(409).json({ error });
   }
   const { id } = req.params;
   const conn = await db.getConnection();
@@ -416,12 +444,19 @@ async function seat(req, res) {
       }
     }
 
-    await conn.query(
+    const [seatedResult] = await conn.query(
       `UPDATE queue_entries
        SET status = 'serving', table_id = ?, reserved_table_id = NULL, served_at = UTC_TIMESTAMP()
-       WHERE queue_id = ? AND status = 'called'`,
+       WHERE queue_id = ? AND status = 'called'
+         AND HOUR(DATE_ADD(UTC_TIMESTAMP(), INTERVAL 8 HOUR)) < 21`,
       [table.table_id, entry.queue_id]
     );
+    if (!seatedResult.affectedRows) {
+      await conn.rollback();
+      return isRestaurantEntryCutoffReached()
+        ? res.status(409).json({ error: 'Queue seating stops at the 9:00 PM last-entry time.' })
+        : res.status(409).json({ error: 'This queue entry is no longer awaiting seating.' });
+    }
 
     await conn.commit();
     emit(req, { action: 'seat', queueId: entry.queue_id, tableId: table.table_id });
@@ -437,7 +472,7 @@ async function seat(req, res) {
 
 async function processAutoCallGroup(group) {
   if (!isQueueGroup(group)) throw new Error(`Invalid queue group: ${group}`);
-  if (isLastOrderCutoffReached()) return;
+  if (!isQueueEntryWindowOpen()) return;
   const queueDate = getRestaurantDateKey();
   const conn = await db.getConnection();
 
@@ -452,7 +487,7 @@ async function processAutoCallGroup(group) {
       await conn.commit();
       return;
     }
-    if (isLastOrderCutoffReached()) {
+    if (!isQueueEntryWindowOpen()) {
       await conn.commit();
       return;
     }
@@ -486,16 +521,21 @@ async function processAutoCallGroup(group) {
     );
 
     for (const entry of waiting) {
-      if (isLastOrderCutoffReached()) break;
+      if (!isQueueEntryWindowOpen()) break;
       const table = await findAvailableTable(conn, entry.party_size);
       if (!table) continue;
 
-      await conn.query(
+      const [callResult] = await conn.query(
         `UPDATE queue_entries
          SET status = 'called', called_at = UTC_TIMESTAMP(), reserved_table_id = ?
-         WHERE queue_id = ? AND status = 'queued'`,
+         WHERE queue_id = ? AND status = 'queued'
+           AND HOUR(DATE_ADD(UTC_TIMESTAMP(), INTERVAL 8 HOUR)) < 21`,
         [table.table_id, entry.queue_id]
       );
+      if (!callResult.affectedRows) {
+        await conn.rollback();
+        return;
+      }
       await conn.commit();
       emit(null, { action: 'auto-call', queueId: entry.queue_id, queueNumber: entry.queue_number, calledUserId: entry.user_id, calledQueueId: entry.queue_id, calledQueueNumber: entry.queue_number });
       break;
@@ -510,7 +550,8 @@ async function processAutoCallGroup(group) {
 }
 
 async function autoCallCycle() {
-  if (isLastOrderCutoffReached()) {
+  if (isBeforeRestaurantOpening()) return;
+  if (isRestaurantEntryCutoffReached()) {
     const conn = await db.getConnection();
     try {
       await conn.beginTransaction();

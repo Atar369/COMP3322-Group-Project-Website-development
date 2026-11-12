@@ -3,7 +3,12 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useCart } from '../context/CartContext';
 import api from '../services/api';
-import { formatOrderWindowCountdown, getOrderWindowStatus, isLastOrderCutoffReached } from '../utils/orderingWindow';
+import {
+  formatOrderWindowCountdown,
+  getOrderWindowStatus,
+  isBeforeRestaurantOpening,
+  isOrderPlacementCutoffReached,
+} from '../utils/orderingWindow';
 import Pagination, { usePagination } from '../components/Pagination';
 import { formatRestaurantDateTime, formatRestaurantTime } from '../utils/restaurantTime';
 
@@ -16,15 +21,16 @@ function useNow() {
   return now;
 }
 
-function OrderTimer({ servedAt, now, cutoffReached }) {
+function OrderTimer({ servedAt, now, beforeOpening, cutoffReached }) {
   const { ended, remainingMs } = getOrderWindowStatus(servedAt, now);
   return (
     <div style={{ fontSize: '0.78rem', fontWeight: 600 }}>
-      <div style={{ color: ended || cutoffReached ? 'var(--rust)' : 'var(--green)' }}>
+      {!beforeOpening && !cutoffReached && <div style={{ color: ended ? 'var(--rust)' : 'var(--green)' }}>
         {ended ? 'Last order ended' : formatOrderWindowCountdown(remainingMs)}
-      </div>
+      </div>}
+      {beforeOpening && <div style={{ color: 'var(--rust)' }}>Order placement opens at 10:00 AM.</div>}
       {cutoffReached && (
-        <div style={{ color: 'var(--rust)' }}>Order placement is closed for the day after 21:00.</div>
+        <div style={{ color: 'var(--rust)' }}>Order placement ends at 9:45 PM.</div>
       )}
     </div>
   );
@@ -67,7 +73,7 @@ export default function OrderManagement() {
   useEffect(load, [load]);
 
   function handleOrder(type, id) {
-    if (isLastOrderCutoffReached() || !id) return;
+    if (isBeforeRestaurantOpening() || isOrderPlacementCutoffReached() || !id) return;
     setOrderContext({
       type,
       bookingId: type === 'booking' ? id : null,
@@ -99,11 +105,12 @@ export default function OrderManagement() {
   }
 
   const cartCount = items.reduce((n, i) => n + i.qty, 0);
-  const cutoffReached = isLastOrderCutoffReached(new Date(now));
+  const beforeOpening = isBeforeRestaurantOpening(new Date(now));
+  const cutoffReached = isOrderPlacementCutoffReached(new Date(now));
 
   function servingButtons(sessions, servedAt, totalLabel) {
     const { ended: isOrderWindowClosed } = getOrderWindowStatus(servedAt, now);
-    const orderDisabled = isOrderWindowClosed || cutoffReached;
+    const orderDisabled = isOrderWindowClosed || beforeOpening || cutoffReached;
 
     return (
       <>
@@ -136,7 +143,7 @@ export default function OrderManagement() {
             Request Payment
           </button>
         </div>
-        <OrderTimer servedAt={servedAt} now={now} cutoffReached={cutoffReached} />
+        <OrderTimer servedAt={servedAt} now={now} beforeOpening={beforeOpening} cutoffReached={cutoffReached} />
       </>
     );
   }
@@ -173,7 +180,7 @@ export default function OrderManagement() {
     <div className="page" style={{ maxWidth: 1100 }}>
       <h1>Orders & Cart</h1>
       <p style={{ color: '#6b6558', fontSize: '0.88rem', marginBottom: 20 }}>
-        Orders from seated tables and queue parties. Request payment when you are ready to pay.
+        Restaurant hours are 10:00 AM–10:00 PM. Join the queue by 9:00 PM; seated customers may place orders within 45 minutes of seating, but no later than 9:45 PM. Request payment when you are ready.
       </p>
       {ordersError && (
         <p className="error-text">

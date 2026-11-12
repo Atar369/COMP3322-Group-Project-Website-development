@@ -1,6 +1,11 @@
 import { useEffect, useState } from 'react';
 import api from '../services/api';
-import { formatOrderWindowCountdown, getOrderWindowStatus, isLastOrderCutoffReached } from '../utils/orderingWindow';
+import {
+  formatOrderWindowCountdown,
+  getOrderWindowStatus,
+  isBeforeRestaurantOpening,
+  isOrderPlacementCutoffReached,
+} from '../utils/orderingWindow';
 
 export default function useOrderWindow(user, orderContext, enabled = true) {
   const [session, setSession] = useState({ loading: false, servedAt: null, status: null, error: '' });
@@ -46,15 +51,17 @@ export default function useOrderWindow(user, orderContext, enabled = true) {
     ? getOrderWindowStatus(session.servedAt, now)
     : { remainingMs: 0, ended: false };
   const orderWindowEnded = windowStatus.ended || (session.status && session.status !== 'serving');
-  const cutoffReached = isLastOrderCutoffReached(new Date(now));
+  const beforeOpening = isBeforeRestaurantOpening(new Date(now));
+  const cutoffReached = isOrderPlacementCutoffReached(new Date(now));
   return {
     ...session,
     hasOrderContext: Boolean(enabled && orderContext),
     cutoffReached,
+    beforeOpening,
     orderWindowEnded,
     countdown: session.servedAt && session.status === 'serving' && !windowStatus.ended
       ? formatOrderWindowCountdown(windowStatus.remainingMs)
       : null,
-    canOrder: Boolean(enabled && orderContext && session.servedAt && session.status === 'serving' && !windowStatus.ended && !cutoffReached),
+    canOrder: Boolean(enabled && orderContext && session.servedAt && session.status === 'serving' && !windowStatus.ended && !beforeOpening && !cutoffReached),
   };
 }

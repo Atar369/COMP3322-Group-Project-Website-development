@@ -1,5 +1,9 @@
 const db = require('../db');
-const { isLastOrderCutoffReached, isOrderWindowOpen } = require('../utils/orderingWindow');
+const {
+  isBeforeRestaurantOpening,
+  isOrderWindowOpen,
+  isOrderPlacementCutoffReached,
+} = require('../utils/orderingWindow');
 
 // GET /api/orders — all orders with booking/queue context (manager)
 async function listAll(req, res) {
@@ -177,9 +181,9 @@ async function create(req, res) {
         await conn.rollback();
         return res.status(400).json({ error: 'Booking must be seated before ordering.' });
       }
-      if (isLastOrderCutoffReached() || !isOrderWindowOpen(sessions[0].served_at)) {
+      if (isBeforeRestaurantOpening() || isOrderPlacementCutoffReached() || !isOrderWindowOpen(sessions[0].served_at)) {
         await conn.rollback();
-        return res.status(409).json({ error: 'The last-order window has ended. Orders must be placed within 45 minutes of seating and before 21:00.' });
+        return res.status(409).json({ error: 'Orders are available from 10:00 AM until 9:45 PM, and only within 45 minutes of seating.' });
       }
       table_id = sessions[0].table_id;
     } else {
@@ -192,9 +196,9 @@ async function create(req, res) {
         await conn.rollback();
         return res.status(400).json({ error: 'Queue entry must be seated before ordering.' });
       }
-      if (isLastOrderCutoffReached() || !isOrderWindowOpen(sessions[0].served_at)) {
+      if (isBeforeRestaurantOpening() || isOrderPlacementCutoffReached() || !isOrderWindowOpen(sessions[0].served_at)) {
         await conn.rollback();
-        return res.status(409).json({ error: 'The last-order window has ended. Orders must be placed within 45 minutes of seating and before 21:00.' });
+        return res.status(409).json({ error: 'Orders are available from 10:00 AM until 9:45 PM, and only within 45 minutes of seating.' });
       }
       table_id = sessions[0].table_id;
     }
@@ -236,9 +240,16 @@ async function create(req, res) {
 
     const [result] = await conn.query(
       `INSERT INTO orders (user_id, booking_id, queue_id, table_id, status, total_amount, payment_status)
-       VALUES (?, ?, ?, ?, 'pending', ?, 'unpaid')`,
+       SELECT ?, ?, ?, ?, 'pending', ?, 'unpaid'
+       WHERE HOUR(DATE_ADD(UTC_TIMESTAMP(), INTERVAL 8 HOUR)) < 21
+          OR (HOUR(DATE_ADD(UTC_TIMESTAMP(), INTERVAL 8 HOUR)) = 21
+              AND MINUTE(DATE_ADD(UTC_TIMESTAMP(), INTERVAL 8 HOUR)) < 45)`,
       [user_id, booking_id || null, queue_id || null, table_id, total]
     );
+    if (!result.affectedRows) {
+      await conn.rollback();
+      return res.status(409).json({ error: 'Order placement ends at 9:45 PM.' });
+    }
     const order_id = result.insertId;
     for (const item of validItems) {
       await conn.query(
