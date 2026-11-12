@@ -229,7 +229,7 @@ async function cancel(request, response) {
     await connection.beginTransaction();
 
     const [bookings] = await connection.query(
-      `SELECT user_id, table_id, status FROM bookings WHERE booking_id = ? FOR UPDATE`,
+      `SELECT user_id, table_id, booking_date, status FROM bookings WHERE booking_id = ? FOR UPDATE`,
       [id]
     );
 
@@ -249,6 +249,11 @@ async function cancel(request, response) {
     if (booking.status !== 'booked') {
       await connection.rollback();
       return response.status(409).json({error: "Only active bookings can be cancelled."});
+    }
+
+    if (isCustomerCancellation && !isAtLeastRestaurantTomorrow(booking.booking_date)) {
+      await connection.rollback();
+      return response.status(400).json({error: "Bookings can only be cancelled at least one day in advance."});
     }
 
     const table_id = booking.table_id;
