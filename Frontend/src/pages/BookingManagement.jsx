@@ -3,6 +3,9 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import Pagination, { usePagination } from '../components/Pagination';
 import { compareBookingDateTime, getRestaurantDateKey } from '../utils/restaurantTime';
+import DishRatingSummary from '../components/DishRatingSummary';
+
+const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000';
 
 export default function BookingManagement() {
   const { user, logout, updateUser } = useAuth();
@@ -365,7 +368,7 @@ export default function BookingManagement() {
                           </div>
                           {item.image_url && (
                             <img
-                              src={item.image_url}
+                              src={item.image_url.startsWith('http') ? item.image_url : `${API_BASE}${item.image_url}`}
                               alt={item.name}
                               onError={event => { event.currentTarget.style.display = 'none'; }}
                             />
@@ -380,6 +383,7 @@ export default function BookingManagement() {
                           <p className="menu-food-description">
                             {item.description || 'A thoughtfully prepared Ember & Oak favorite.'}
                           </p>
+                          <DishRatingSummary item={item} compact />
                           <div className="menu-food-footer">
                             <span className="menu-food-price">${Number(item.price).toFixed(2)}</span>
                             <button

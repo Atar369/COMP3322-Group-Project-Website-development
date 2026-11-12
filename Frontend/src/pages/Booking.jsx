@@ -4,6 +4,7 @@ import Pagination, { usePagination } from '../components/Pagination';
 import { Link } from 'react-router-dom';
 import '../toast.css';
 import { getRestaurantTomorrowDateKey } from '../utils/restaurantTime';
+import DishRatingSummary from '../components/DishRatingSummary';
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL 
   ? import.meta.env.VITE_API_BASE_URL 
@@ -67,7 +68,7 @@ export default function Booking() {
   const allowedTimes = ['10:00','10:30','11:00','11:30','12:00','12:30','13:00','13:30','14:00','14:30','17:00','17:30','18:00','18:30','19:00','19:30','20:00','20:30','21:00'];
 
   return (
-    <div className="page" style={{ maxWidth: 680 }}>
+    <div className="page booking-page">
       <h1>Book a Table</h1>
       <div className="card" style={{ background: 'var(--paper-dim)', marginBottom: 20, fontSize: '0.88rem', color: '#6b6558' }}>
         <p style={{ margin: 0 }}>Restaurant hours: <strong>10:00 AM–10:00 PM</strong>. The final booking slot is <strong>9:00–10:00 PM</strong>. Order placement ends at <strong>9:45 PM</strong>; seated guests may order within 45 minutes of seating until then. Dining time: <strong>1 hour</strong> per booking. A table will be auto-assigned.</p>
@@ -123,6 +124,7 @@ export default function Booking() {
                   <p className="menu-food-description">
                     {item.description || 'A thoughtfully prepared Ember & Oak favorite.'}
                   </p>
+                  <DishRatingSummary item={item} compact />
                   <div className="menu-food-footer">
                     <span className="menu-food-price">${Number(item.price).toFixed(2)}</span>
                     <button

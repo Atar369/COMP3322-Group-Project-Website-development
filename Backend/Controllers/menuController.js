@@ -50,14 +50,140 @@ async function saveImage(file) {
 async function list(request, response) {
   try {
     const [rows] = await db.query(
-      `SELECT item_id, name, description, category, price, image_url, is_available
-       FROM menu_items
-       ORDER BY category ASC, name ASC, item_id ASC`
+      `SELECT m.item_id, m.name, m.description, m.category, m.price, m.image_url, m.is_available,
+              COALESCE(ratings.average_rating, 0) AS average_rating,
+              COALESCE(ratings.review_count, 0) AS review_count
+       FROM menu_items m
+       LEFT JOIN (
+         SELECT item_id, AVG(rating) AS average_rating, COUNT(*) AS review_count
+         FROM dish_reviews
+         GROUP BY item_id
+       ) ratings ON ratings.item_id = m.item_id
+       ORDER BY m.category ASC, m.name ASC, m.item_id ASC`
     );
     return response.json(rows);
   } catch (error) {
     console.error('Menu list failed:', error);
     return response.status(500).json({ error: 'Could not load the menu. Please try again.' });
+  }
+}
+
+async function listReviews(request, response) {
+  const { id } = request.params;
+  if (!/^\d+$/.test(id) || Number(id) <= 0) {
+    return response.status(400).json({ error: 'Invalid dish ID.' });
+  }
+
+  try {
+    const [items] = await db.query('SELECT item_id FROM menu_items WHERE item_id = ?', [id]);
+    if (!items.length) return response.status(404).json({ error: 'Dish not found.' });
+
+    const [reviews] = await db.query(
+      `SELECT r.review_id, r.rating, r.comment, r.updated_at,
+              u.name AS reviewer_name
+       FROM dish_reviews r
+       JOIN users u ON u.user_id = r.user_id
+       WHERE r.item_id = ?
+       ORDER BY r.updated_at DESC, r.review_id DESC
+       LIMIT 50`,
+      [id]
+    );
+    const [summaryRows] = await db.query(
+      `SELECT AVG(rating) AS average_rating, COUNT(*) AS review_count
+       FROM dish_reviews
+       WHERE item_id = ?`,
+      [id]
+    );
+    const [eligibilityRows] = await db.query(
+      `SELECT EXISTS (
+         SELECT 1
+         FROM orders o
+         JOIN order_items oi ON oi.order_id = o.order_id
+         WHERE o.user_id = ? AND oi.item_id = ?
+           AND o.payment_status = 'paid'
+       ) AS can_review`,
+      [request.user.user_id, id]
+    );
+    const [myReviews] = await db.query(
+      `SELECT review_id, rating, comment, updated_at
+       FROM dish_reviews
+       WHERE item_id = ? AND user_id = ?`,
+      [id, request.user.user_id]
+    );
+    const summary = summaryRows[0];
+    return response.json({
+      reviews,
+      average_rating: Number(summary.average_rating) || 0,
+      review_count: Number(summary.review_count),
+      can_review: Boolean(eligibilityRows[0].can_review),
+      my_review: myReviews[0] || null,
+    });
+  } catch (error) {
+    console.error('Dish reviews list failed:', error);
+    return response.status(500).json({ error: 'Could not load dish reviews. Please try again.' });
+  }
+}
+
+async function saveReview(request, response) {
+  const { id } = request.params;
+  const { rating, comment = '' } = request.body;
+  const numericRating = Number(rating);
+  if (!/^\d+$/.test(id) || Number(id) <= 0) {
+    return response.status(400).json({ error: 'Invalid dish ID.' });
+  }
+  if (!Number.isInteger(numericRating) || numericRating < 1 || numericRating > 5) {
+    return response.status(400).json({ error: 'Choose a rating from 1 to 5 stars.' });
+  }
+  if (typeof comment !== 'string' || comment.trim().length > 1000) {
+    return response.status(400).json({ error: 'Comments must be 1,000 characters or fewer.' });
+  }
+
+  try {
+    const [eligibilityRows] = await db.query(
+      `SELECT EXISTS (
+         SELECT 1
+         FROM orders o
+         JOIN order_items oi ON oi.order_id = o.order_id
+         WHERE o.user_id = ? AND oi.item_id = ?
+           AND o.payment_status = 'paid'
+       ) AS can_review`,
+      [request.user.user_id, id]
+    );
+    if (!eligibilityRows[0].can_review) {
+      return response.status(403).json({ error: 'You can review this dish after it has been paid for.' });
+    }
+
+    const [result] = await db.query(
+      `INSERT INTO dish_reviews (item_id, user_id, rating, comment)
+       VALUES (?, ?, ?, ?)
+       ON DUPLICATE KEY UPDATE
+         rating = VALUES(rating),
+         comment = VALUES(comment),
+         updated_at = UTC_TIMESTAMP()`,
+      [id, request.user.user_id, numericRating, comment.trim()]
+    );
+    const [savedReviews] = await db.query(
+      `SELECT r.review_id, r.rating, r.comment, r.updated_at, u.name AS reviewer_name
+       FROM dish_reviews r
+       JOIN users u ON u.user_id = r.user_id
+       WHERE r.item_id = ? AND r.user_id = ?`,
+      [id, request.user.user_id]
+    );
+    const [summaryRows] = await db.query(
+      `SELECT AVG(rating) AS average_rating, COUNT(*) AS review_count
+       FROM dish_reviews
+       WHERE item_id = ?`,
+      [id]
+    );
+    return response.json({
+      review: savedReviews[0],
+      average_rating: Number(summaryRows[0].average_rating) || 0,
+      review_count: Number(summaryRows[0].review_count),
+      updated: result.affectedRows === 2,
+    });
+  } catch (error) {
+    console.error('Dish review save failed:', error);
+    return response.status(500).json({ error: 'Could not save your review. Please try again.' });
   }
 }
 
@@ -173,7 +299,7 @@ async function remove(request, response) {
   } catch (error) {
     if (error.code === 'ER_ROW_IS_REFERENCED_2') {
       return response.status(409).json({
-        error: 'This dish is part of an existing order and cannot be removed. Mark it sold out instead.',
+        error: 'This dish has existing order or review history and cannot be removed. Mark it sold out instead.',
       });
     }
     console.error('Menu item removal failed:', error);
@@ -181,4 +307,4 @@ async function remove(request, response) {
   }
 }
 
-module.exports = { list, create, update, remove, MENU_IMAGE_DIR };
+module.exports = { list, listReviews, saveReview, create, update, remove, MENU_IMAGE_DIR };

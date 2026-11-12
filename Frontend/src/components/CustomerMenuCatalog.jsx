@@ -6,6 +6,8 @@ import api from '../services/api';
 import useOrderWindow from '../hooks/useOrderWindow';
 import OrderWindowNotice from './OrderWindowNotice';
 import Pagination, { usePagination } from './Pagination';
+import DishRatingSummary from './DishRatingSummary';
+import DishReviewsDialog from './DishReviewsDialog';
 
 const FOOD_TYPES = ['Starter', 'Main', 'Side', 'Dessert', 'Beverage'];
 
@@ -26,7 +28,7 @@ function isAvailable(item) {
   return item.is_available === true || item.is_available === 1;
 }
 
-function MenuCard({ item, canOrder, managerMode, onAdd, onUpdatePrice, onToggleAvailability, onRemove, orderWindow }) {
+function MenuCard({ item, canOrder, managerMode, onAdd, onUpdatePrice, onToggleAvailability, onRemove, onViewReviews, orderWindow }) {
   const [editingPrice, setEditingPrice] = useState(false);
   const [priceDraft, setPriceDraft] = useState(Number(item.price).toFixed(2));
   const [confirmRemove, setConfirmRemove] = useState(false);
@@ -75,6 +77,7 @@ function MenuCard({ item, canOrder, managerMode, onAdd, onUpdatePrice, onToggleA
           <span className="menu-food-type">{getFoodType(item.category)}</span>
         </div>
         <p className="menu-food-description">{item.description || 'A thoughtfully prepared Ember & Oak favorite.'}</p>
+        {!managerMode && <DishRatingSummary item={item} onViewReviews={() => onViewReviews(item)} compact />}
         <div className="menu-food-footer">
           {editingPrice ? (
             <form className="menu-price-editor" onSubmit={savePrice}>
@@ -154,6 +157,7 @@ export default function CustomerMenuCatalog({ canOrder = false, managerMode = fa
   const [menuFormOpen, setMenuFormOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const [newItem, setNewItem] = useState({ name: '', description: '', category: 'Main', price: '', image: null });
+  const [selectedDish, setSelectedDish] = useState(null);
 
   useEffect(() => {
     let active = true;
@@ -399,6 +403,7 @@ export default function CustomerMenuCatalog({ canOrder = false, managerMode = fa
                   onUpdatePrice={updatePrice}
                   onToggleAvailability={updateAvailability}
                   onRemove={removeItem}
+                  onViewReviews={setSelectedDish}
                   orderWindow={orderWindow}
                 />
               ))}
@@ -412,6 +417,15 @@ export default function CustomerMenuCatalog({ canOrder = false, managerMode = fa
           />
         </section>
       </div>
+      {selectedDish && (
+        <DishReviewsDialog
+          item={selectedDish}
+          onClose={() => setSelectedDish(null)}
+          onSaved={summary => setMenuItems(current => current.map(item => (
+            item.item_id === summary.item_id ? { ...item, ...summary } : item
+          )))}
+        />
+      )}
     </main>
   );
 }

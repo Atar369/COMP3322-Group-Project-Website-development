@@ -363,6 +363,70 @@ async function listHistoryByUser(req, res) {
   }
 }
 
+// GET /api/orders/history/:user_id/review-dishes?order_ids=1,2
+async function listPaidReviewDishes(req, res) {
+  const { user_id } = req.params;
+  const orderIdsParam = req.query.order_ids;
+  if (Number(user_id) !== Number(req.user.user_id)) {
+    return res.status(404).json({ error: 'Order history not found.' });
+  }
+  if (typeof orderIdsParam !== 'string' || !orderIdsParam || !/^\d+(,\d+)*$/.test(orderIdsParam)) {
+    return res.status(400).json({ error: 'Provide valid order IDs for this paid bill.' });
+  }
+
+  const orderIds = [...new Set(orderIdsParam.split(',').map(Number))];
+  if (orderIds.some(id => !Number.isSafeInteger(id) || id <= 0) || orderIds.length > 100) {
+    return res.status(400).json({ error: 'Provide between 1 and 100 valid order IDs.' });
+  }
+
+  try {
+    const placeholders = orderIds.map(() => '?').join(', ');
+    const [rows] = await db.query(
+      `SELECT DISTINCT m.item_id, m.name, m.description, m.category, m.image_url,
+              COALESCE(ratings.average_rating, 0) AS average_rating,
+              COALESCE(ratings.review_count, 0) AS review_count,
+              mine.rating AS my_rating, mine.comment AS my_comment
+       FROM orders o
+       JOIN order_items oi ON oi.order_id = o.order_id
+       JOIN menu_items m ON m.item_id = oi.item_id
+       LEFT JOIN (
+         SELECT item_id, AVG(rating) AS average_rating, COUNT(*) AS review_count
+         FROM dish_reviews
+         GROUP BY item_id
+       ) ratings ON ratings.item_id = m.item_id
+       LEFT JOIN dish_reviews mine
+         ON mine.item_id = m.item_id AND mine.user_id = o.user_id
+       WHERE o.user_id = ? AND o.payment_status = 'paid'
+         AND o.order_id IN (${placeholders})
+       ORDER BY m.category, m.name, m.item_id`,
+      [user_id, ...orderIds]
+    );
+    if (rows.length) {
+      const placeholders = rows.map(() => '?').join(', ');
+      const itemIds = rows.map(row => row.item_id);
+      const [reviews] = await db.query(
+        `SELECT r.review_id, r.item_id, r.rating, r.comment, r.updated_at,
+                u.name AS reviewer_name
+         FROM dish_reviews r
+         JOIN users u ON u.user_id = r.user_id
+         WHERE r.item_id IN (${placeholders})
+         ORDER BY r.updated_at DESC, r.review_id DESC`,
+        itemIds
+      );
+      const reviewsByItem = new Map();
+      reviews.forEach(review => {
+        if (!reviewsByItem.has(review.item_id)) reviewsByItem.set(review.item_id, []);
+        reviewsByItem.get(review.item_id).push(review);
+      });
+      rows.forEach(row => { row.reviews = reviewsByItem.get(row.item_id) || []; });
+    }
+    return res.json(rows);
+  } catch (err) {
+    console.error('listPaidReviewDishes orders error:', err);
+    return res.status(500).json({ error: 'Could not load dishes from this paid bill. Please try again.' });
+  }
+}
+
 // PATCH /api/orders/:id/status — advance kitchen status (manager)
 async function advanceStatus(req, res) {
   const { id } = req.params;
@@ -413,4 +477,7 @@ async function markPaid(req, res) {
   }
 }
 
-module.exports = { listAll, listManagerHistory, create, getOne, listByUser, listHistoryByUser, advanceStatus, finishOrder, markPaid };
+module.exports = {
+  listAll, listManagerHistory, create, getOne, listByUser, listHistoryByUser,
+  listPaidReviewDishes, advanceStatus, finishOrder, markPaid,
+};

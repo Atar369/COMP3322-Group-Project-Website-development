@@ -12,7 +12,14 @@ export function CartProvider({ children }) {
       if (existing) {
         return prev.map(i => i.item_id === menuItem.item_id ? { ...i, qty: i.qty + 1 } : i);
       }
-      return [...prev, { item_id: menuItem.item_id, name: menuItem.name, price: menuItem.price, qty: 1 }];
+      return [...prev, {
+        item_id: menuItem.item_id,
+        name: menuItem.name,
+        price: menuItem.price,
+        average_rating: menuItem.average_rating,
+        review_count: menuItem.review_count,
+        qty: 1,
+      }];
     });
   }
 

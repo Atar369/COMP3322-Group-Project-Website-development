@@ -615,6 +615,129 @@ a { color: inherit; }
   line-height: 1.65;
 }
 .booking-cancellation-notice strong { color: var(--ink); }
+.dish-rating-summary {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  color: #6b6558;
+  font-size: 0.8rem;
+}
+.dish-rating-summary.is-compact { margin: 8px 0 10px; font-size: 0.72rem; }
+.dish-rating-stars { color: #b9821d; letter-spacing: 1px; white-space: nowrap; }
+.dish-rating-count { color: #777267; }
+.dish-reviews-link,
+.order-history-review-link {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--green);
+  font: inherit;
+  font-weight: 700;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+.dish-reviews-link { margin-left: 3px; }
+.dish-reviews-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1200;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  background: rgba(25, 23, 19, 0.68);
+}
+.dish-reviews-dialog {
+  position: relative;
+  width: min(100%, 680px);
+  max-height: min(88vh, 900px);
+  overflow: auto;
+  padding: 28px;
+  border: 1px solid var(--line);
+  border-top: 4px solid var(--mustard);
+  background: linear-gradient(145deg, rgba(255, 255, 255, 0.88), transparent 55%), #fffefa;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.26);
+}
+.dish-reviews-dialog > .section-label { color: #8b7850; font-size: 0.68rem; }
+.dish-reviews-dialog h2 { margin: 4px 38px 5px 0; }
+.dish-reviews-description { margin: 0 0 12px; color: #6b6558; font-size: 0.88rem; }
+.dish-reviews-close {
+  position: absolute;
+  top: 14px;
+  right: 16px;
+  width: 34px;
+  height: 34px;
+  border: 1px solid var(--line);
+  background: var(--paper);
+  color: var(--ink);
+  font-size: 1.4rem;
+  cursor: pointer;
+}
+.dish-reviews-state { color: #777267; font-size: 0.86rem; }
+.dish-review-form,
+.dish-review-eligibility {
+  margin: 18px 0;
+  padding: 16px;
+  border-left: 3px solid var(--mustard);
+  background: var(--paper-dim);
+}
+.dish-review-form h3,
+.dish-review-list h3 { margin: 0; font-size: 1.15rem; }
+.dish-review-form > p { margin: 4px 0 10px; color: #6b6558; font-size: 0.8rem; }
+.dish-review-star-picker { display: flex; gap: 5px; margin: 8px 0 12px; }
+.dish-review-star-picker button {
+  padding: 0 2px;
+  border: 0;
+  background: none;
+  color: #c9c1b0;
+  font-size: 1.8rem;
+  line-height: 1;
+  cursor: pointer;
+}
+.dish-review-star-picker button.is-selected { color: #b9821d; }
+.dish-review-form label { display: grid; gap: 5px; font-size: 0.82rem; font-weight: 600; }
+.dish-review-form textarea { width: 100%; resize: vertical; }
+.dish-review-form-footer { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: 10px; }
+.dish-review-form-footer > span { color: #777267; font-size: 0.72rem; }
+.dish-review-success { color: var(--green); font-size: 0.84rem; font-weight: 700; }
+.dish-review-list { margin-top: 20px; }
+.dish-review-list h3 { display: flex; align-items: baseline; gap: 6px; border-bottom: 1px solid var(--line); padding-bottom: 8px; }
+.dish-review-list h3 span { color: #777267; font: 500 0.75rem var(--font-body); }
+.dish-review-entry { padding: 13px 0; border-bottom: 1px solid #e8e2d6; }
+.dish-review-entry-heading { display: flex; justify-content: space-between; gap: 12px; font-size: 0.84rem; }
+.dish-review-date { display: block; margin-top: 3px; color: #777267; font-size: 0.72rem; }
+.dish-review-entry p { margin: 7px 0 0; color: #5e594f; font-size: 0.86rem; white-space: pre-wrap; overflow-wrap: anywhere; }
+.order-history-review-link { font-size: 0.74rem; }
+.bill-review-page {
+  width: min(920px, calc(100% - 40px));
+  max-width: 920px;
+}
+.bill-review-back {
+  display: inline-block;
+  margin-bottom: 20px;
+  color: var(--green);
+  font-weight: 700;
+  text-decoration: none;
+}
+.bill-review-page > .section-label { color: #8b7850; font-size: 0.68rem; }
+.bill-review-page h1 { margin: 4px 0 6px; }
+.bill-review-intro { margin: 0 0 22px; color: #6b6558; }
+.bill-review-dishes { display: grid; gap: 16px; }
+.bill-review-dish {
+  padding: 20px;
+  border: 1px solid var(--line);
+  border-top: 3px solid var(--mustard);
+  background: linear-gradient(145deg, rgba(255, 255, 255, 0.8), transparent 55%), #fffefa;
+  box-shadow: 0 6px 16px rgba(48, 42, 30, 0.05);
+}
+.bill-review-dish h2 { margin: 8px 0 4px; font-size: 1.35rem; }
+.bill-review-description { margin: 0 0 10px; color: #6b6558; font-size: 0.86rem; }
+.bill-review-dish .dish-review-form { margin-bottom: 0; }
+@media (max-width: 600px) {
+  .dish-reviews-dialog { padding: 22px 18px; }
+  .dish-review-entry-heading { align-items: flex-start; flex-direction: column; gap: 3px; }
+}
 .booking-cancel-overlay {
   position: fixed;
   inset: 0;
@@ -717,6 +840,12 @@ a { color: inherit; }
   box-shadow: 0 8px 20px rgba(48, 42, 30, 0.07);
 }
 .booking-management-page .manager-booking-preorder { border-radius: 3px; }
+.booking-page {
+  width: min(1240px, calc(100% - 40px));
+  max-width: 1240px;
+  padding-right: 0;
+  padding-left: 0;
+}
 .customer-booking-history-card { grid-template-columns: minmax(155px, 0.9fr) minmax(250px, 1.6fr) minmax(140px, 0.8fr); }
 .manager-queue-history-intro { color: #6b6558; font-size: 0.85rem; margin: -4px 0 20px; }
 .manager-queue-history-list { display: flex; flex-direction: column; gap: 12px; }
@@ -1287,7 +1416,7 @@ a { color: inherit; }
 }
 .booking-preorder-grid {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 12px;
   max-height: 460px;
   overflow-y: auto;
@@ -1542,10 +1671,12 @@ a { color: inherit; }
 
 @media (max-width: 960px) {
   .menu-food-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .booking-preorder-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .customer-menu-layout { grid-template-columns: 210px minmax(0, 1fr); gap: 18px; }
 }
 @media (max-width: 640px) {
   .customer-menu-page { width: min(100% - 28px, 480px); padding: 24px 0 48px; }
+  .booking-page { width: calc(100% - 28px); padding: 24px 0 48px; }
   .customer-menu-heading { align-items: flex-start; flex-direction: column; margin-bottom: 20px; }
   .customer-menu-layout { grid-template-columns: 1fr; }
   .menu-filter-panel { position: static; }

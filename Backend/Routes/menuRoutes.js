@@ -18,6 +18,8 @@ const managerOnly = [verifyToken, requireRole('manager')];
 
 // GET /api/menu — any authenticated user (customer + manager)
 router.get('/', verifyToken, menuController.list);
+router.get('/:id/reviews', verifyToken, menuController.listReviews);
+router.post('/:id/reviews', verifyToken, requireRole('customer'), menuController.saveReview);
 
 router.post('/', ...managerOnly, (request, response, next) => {
   upload.single('image')(request, response, error => {

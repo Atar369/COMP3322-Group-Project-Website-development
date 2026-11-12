@@ -5,6 +5,7 @@ import api from '../services/api';
 import useOrderWindow from '../hooks/useOrderWindow';
 import OrderWindowNotice from '../components/OrderWindowNotice';
 import Pagination, { usePagination } from '../components/Pagination';
+import DishRatingSummary from '../components/DishRatingSummary';
 
 export default function Cart() {
   const { items, removeItem, clearCart, total, orderContext } = useCart();
@@ -54,6 +55,7 @@ export default function Cart() {
       {pagination.pageItems.map(i => (
         <div className="ticket-row" key={i.item_id}>
           <span className="name">{i.name}</span>
+          <DishRatingSummary item={i} compact />
           <span className="leader" />
           <span className="price">${i.price * i.qty}</span>
           <button className="btn secondary" style={{ padding: '4px 10px', fontSize: '0.8rem' }} onClick={() => removeItem(i.item_id)}>Remove</button>

@@ -104,6 +104,24 @@ CREATE TABLE order_items (
   CONSTRAINT chk_order_items_price CHECK (unit_price >= 0)
 );
 
+CREATE TABLE dish_reviews (
+  review_id INT UNSIGNED NOT NULL AUTO_INCREMENT,
+  item_id INT UNSIGNED NOT NULL,
+  user_id INT UNSIGNED NOT NULL,
+  rating TINYINT UNSIGNED NOT NULL,
+  comment VARCHAR(1000) NOT NULL DEFAULT '',
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (review_id),
+  UNIQUE KEY uq_dish_reviews_user_item (user_id, item_id),
+  KEY idx_dish_reviews_item_updated (item_id, updated_at),
+  CONSTRAINT fk_dish_reviews_item FOREIGN KEY (item_id) REFERENCES menu_items (item_id)
+    ON DELETE RESTRICT ON UPDATE RESTRICT,
+  CONSTRAINT fk_dish_reviews_user FOREIGN KEY (user_id) REFERENCES users (user_id)
+    ON DELETE RESTRICT ON UPDATE RESTRICT,
+  CONSTRAINT chk_dish_reviews_rating CHECK (rating BETWEEN 1 AND 5)
+);
+
 CREATE TABLE bookings (
   booking_id INT UNSIGNED NOT NULL AUTO_INCREMENT,
   user_id INT UNSIGNED NOT NULL,

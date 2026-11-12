@@ -555,7 +555,16 @@ async function arrive(request, response) {
 async function menu(request, response) {
   try {
     const [rows] = await db.query(
-      "SELECT item_id, name, description, category, price, image_url, is_available FROM menu_items ORDER BY category, name"
+      `SELECT m.item_id, m.name, m.description, m.category, m.price, m.image_url, m.is_available,
+              COALESCE(ratings.average_rating, 0) AS average_rating,
+              COALESCE(ratings.review_count, 0) AS review_count
+       FROM menu_items m
+       LEFT JOIN (
+         SELECT item_id, AVG(rating) AS average_rating, COUNT(*) AS review_count
+         FROM dish_reviews
+         GROUP BY item_id
+       ) ratings ON ratings.item_id = m.item_id
+       ORDER BY m.category, m.name`
     );
     return response.json(rows);
   } catch (error) {

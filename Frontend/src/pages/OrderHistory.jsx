@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
+import { Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import api from '../services/api';
 import Pagination, { usePagination } from '../components/Pagination';
@@ -166,6 +167,14 @@ export default function OrderHistory() {
                   <div className="order-history-total">
                     <strong>Total: ${bill.total.toFixed(2)}</strong>
                     <span className={`badge ${bill.paymentStatus}`}>{bill.paymentStatus}</span>
+                    {bill.paymentStatus === 'paid' && (
+                      <Link
+                        className="order-history-review-link"
+                        to={`/order-history/reviews?order_ids=${bill.orders.map(order => order.order_id).join(',')}`}
+                      >
+                        Rate dishes from this paid bill
+                      </Link>
+                    )}
                   </div>
                 </article>
               );

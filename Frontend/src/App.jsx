@@ -17,6 +17,7 @@ import Cart from './pages/Cart';
 import OrderStatus from './pages/OrderStatus';
 import OrderManagement from './pages/OrderManagement';
 import OrderHistory from './pages/OrderHistory';
+import BillDishReviews from './pages/BillDishReviews';
 import Queue from './pages/Queue';
 import QueueHistory from './pages/QueueHistory';
 import Booking from './pages/Booking';
@@ -65,6 +66,7 @@ export default function App() {
               <Route path="/cart" element={<ProtectedRoute role="customer"><Cart /></ProtectedRoute>} />
               <Route path="/orders/:id" element={<ProtectedRoute role="customer"><OrderStatus /></ProtectedRoute>} />
               <Route path="/order-management" element={<ProtectedRoute role="customer"><OrderManagement /></ProtectedRoute>} />
+              <Route path="/order-history/reviews" element={<ProtectedRoute role="customer"><BillDishReviews /></ProtectedRoute>} />
               <Route path="/order-history" element={<ProtectedRoute role="customer"><OrderHistory /></ProtectedRoute>} />
               <Route path="/queue" element={<ProtectedRoute role="customer"><Queue /></ProtectedRoute>} />
               <Route path="/queue-history" element={<ProtectedRoute role="customer"><QueueHistory /></ProtectedRoute>} />
