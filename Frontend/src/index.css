@@ -612,8 +612,67 @@ a { color: inherit; }
   background: #f6edda;
   color: #514936;
   font-size: 0.88rem;
+  line-height: 1.65;
 }
 .booking-cancellation-notice strong { color: var(--ink); }
+.booking-cancel-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1200;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  background: rgba(25, 23, 19, 0.62);
+}
+.booking-cancel-dialog {
+  width: min(100%, 520px);
+  padding: 26px;
+  border: 1px solid var(--line);
+  border-top: 4px solid var(--mustard);
+  background: linear-gradient(145deg, rgba(255, 255, 255, 0.85), transparent 55%), #fffefa;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.24);
+}
+.booking-cancel-eyebrow {
+  color: #8b7850;
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 1.2px;
+}
+.booking-cancel-dialog h2 { margin: 4px 0 16px; }
+.booking-cancel-summary {
+  display: grid;
+  gap: 3px;
+  padding: 12px 14px;
+  border-left: 3px solid var(--mustard);
+  background: var(--paper-dim);
+  font-size: 0.88rem;
+}
+.booking-cancel-summary strong { font-family: var(--font-display); font-size: 1.08rem; }
+.booking-cancel-summary span { color: #6b6558; }
+.booking-cancel-policy { margin: 16px 0 10px; font-size: 0.9rem; }
+.booking-cancel-warning {
+  padding: 12px 14px;
+  border: 1px solid rgba(166, 58, 50, 0.28);
+  background: #f8ece7;
+  color: #65322e;
+  font-size: 0.84rem;
+}
+.booking-cancel-warning strong { color: var(--ink); }
+.booking-cancel-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 20px;
+}
+.booking-cancel-confirm { background: var(--rust); color: var(--paper); }
+.booking-cancel-confirm:hover { background: #8f302a; }
+.booking-cancel-actions button:disabled { cursor: wait; opacity: 0.65; }
+@media (max-width: 600px) {
+  .booking-cancel-dialog { padding: 20px; }
+  .booking-cancel-actions { flex-direction: column-reverse; }
+  .booking-cancel-actions button { width: 100%; }
+  .booking-cancel-unavailable { text-align: left; }
+}
 .customer-order-history-card { grid-template-columns: minmax(150px, 0.9fr) minmax(280px, 1.7fr) minmax(140px, 0.8fr); }
 .customer-order-history-card .order-history-total { align-items: flex-end; }
 .manager-bookings-page { max-width: 1380px; }
@@ -650,6 +709,7 @@ a { color: inherit; }
 .manager-booking-customer-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; }
 .manager-booking-customer-actions .btn { padding: 6px 11px; font-size: 0.78rem; }
 .manager-booking-customer-actions .btn.secondary:last-child { border-color: var(--rust); color: var(--rust); }
+.booking-cancel-unavailable { flex-basis: 100%; color: #777267; font-size: 0.68rem; text-align: right; }
 .manager-booking-preorder-count { color: var(--green); font-weight: 600; }
 .booking-management-page .card {
   border-radius: 9px;

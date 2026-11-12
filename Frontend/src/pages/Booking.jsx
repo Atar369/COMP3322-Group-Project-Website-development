@@ -70,7 +70,7 @@ export default function Booking() {
     <div className="page" style={{ maxWidth: 680 }}>
       <h1>Book a Table</h1>
       <div className="card" style={{ background: 'var(--paper-dim)', marginBottom: 20, fontSize: '0.88rem', color: '#6b6558' }}>
-        <p style={{ margin: 0 }}>Restaurant hours: <strong>10:00 AM–10:00 PM</strong>. The final booking slot is <strong>9:00–10:00 PM</strong>; its manager check-in window runs until <strong>9:15 PM</strong>. Queue entry and calls stop at <strong>9:00 PM</strong>. Order placement ends at <strong>9:45 PM</strong>; seated guests may order within 45 minutes of seating until then. Dining time: <strong>1 hour</strong> per booking. A table will be auto-assigned.</p>
+        <p style={{ margin: 0 }}>Restaurant hours: <strong>10:00 AM–10:00 PM</strong>. The final booking slot is <strong>9:00–10:00 PM</strong>. Order placement ends at <strong>9:45 PM</strong>; seated guests may order within 45 minutes of seating until then. Dining time: <strong>1 hour</strong> per booking. A table will be auto-assigned.</p>
       </div>
       <form onSubmit={handleSubmit}>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12, marginBottom: 16 }}>

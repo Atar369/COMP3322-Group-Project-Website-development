@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import Pagination, { usePagination } from '../components/Pagination';
-import { compareBookingDateTime } from '../utils/restaurantTime';
+import { compareBookingDateTime, getRestaurantDateKey } from '../utils/restaurantTime';
 
 export default function BookingManagement() {
   const { user, logout, updateUser } = useAuth();
@@ -10,6 +10,10 @@ export default function BookingManagement() {
   const [userBookings, setUserBookings] = useState([]);
   const [error, setError] = useState('');
   const [cancelMessage, setCancelMessage] = useState('');
+  const [bookingToCancel, setBookingToCancel] = useState(null);
+  const [cancellationLoading, setCancellationLoading] = useState(false);
+  const [cancellationError, setCancellationError] = useState('');
+  const [now, setNow] = useState(Date.now());
   const [editingId, setEditingId] = useState(null);
   const [menuItems, setMenuItems] = useState([]);
   const [preOrder, setPreOrder] = useState([]);
@@ -21,6 +25,21 @@ export default function BookingManagement() {
   const [search, setSearch] = useState('');
   const [sortBy, setSortBy] = useState('soonest');
   const [bookingFilters, setBookingFilters] = useState({ dateFrom: '', dateTo: '', partySize: '' });
+  const todayKey = getRestaurantDateKey(new Date(now));
+
+  useEffect(() => {
+    const timer = setInterval(() => setNow(Date.now()), 60000);
+    return () => clearInterval(timer);
+  }, []);
+
+  useEffect(() => {
+    if (!bookingToCancel) return undefined;
+    function handleKeyDown(event) {
+      if (event.key === 'Escape' && !cancellationLoading) setBookingToCancel(null);
+    }
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [bookingToCancel, cancellationLoading]);
 
   function load() {
     if (!user) return;
@@ -53,21 +72,28 @@ export default function BookingManagement() {
       .catch(() => setAvailableTables([]));
   }, [editForm?.booking_date, editForm?.booking_time, editForm?.party_size]);
 
-  async function handleCancel(bookingId) {
+  function requestCancel(booking) {
     setError('');
     setCancelMessage('');
-    const confirmed = window.confirm(
-      'Cancel this confirmed booking? Each customer-cancelled confirmed booking adds one permanent flag. At 4 flags, your account will be disabled and this email cannot be used to register again.'
-    );
-    if (!confirmed) return;
+    setCancellationError('');
+    setBookingToCancel(booking);
+  }
 
+  async function handleCancel() {
+    if (!bookingToCancel || cancellationLoading) return;
+    setCancellationLoading(true);
+    setCancellationError('');
     try {
-      const res = await fetch(`/api/booking/${bookingId}/cancel`, { method: 'PATCH' });
+      const res = await fetch(`/api/booking/${bookingToCancel.booking_id}/cancel`, { method: 'PATCH' });
       const data = await res.json().catch(() => ({}));
-      if (!res.ok) { setError(data.error || 'Could not cancel booking.'); return; }
+      if (!res.ok) {
+        setCancellationError(data.error || 'Could not cancel booking.');
+        return;
+      }
       if (Number.isInteger(data.cancellationFlags)) {
         updateUser({ cancellation_flags: data.cancellationFlags });
       }
+      setBookingToCancel(null);
       if (data.accountDisabled) {
         window.alert(data.message);
         await logout();
@@ -77,7 +103,9 @@ export default function BookingManagement() {
       setCancelMessage(data.message);
       load();
     } catch {
-      setError('Could not reach the server.');
+      setCancellationError('Could not reach the server. Please try again.');
+    } finally {
+      setCancellationLoading(false);
     }
   }
 
@@ -197,8 +225,9 @@ export default function BookingManagement() {
       <h1>Booking Management</h1>
       <p className="customer-history-intro">Manage upcoming bookings and edit their pre-order courses.</p>
       <p className="booking-cancellation-notice">
-        Booking cancellation flags: <strong>{user?.cancellation_flags || 0} / 4</strong>. Flags do not expire.
-        At 4 flags, your account will be disabled and the email cannot be used to register again.
+        <strong>Cancellation policy:</strong> You can cancel until 11:59 PM (Hong Kong time) on the calendar day before your booking.
+        Same-day cancellations are not available. Every customer cancellation adds one permanent flag
+        (<strong>{user?.cancellation_flags || 0} / 4</strong>); at 4 flags, your account will be disabled and this email cannot be used to register again.
       </p>
       {error && <p className="error-text">{error}</p>}
       {cancelMessage && <p role="status" style={{ color: 'var(--green)', fontWeight: 600 }}>{cancelMessage}</p>}
@@ -231,7 +260,9 @@ export default function BookingManagement() {
           {userBookings.length === 0 ? <>No active bookings. <Link to="/booking">Create a new booking</Link></> : 'No bookings match these filters.'}
         </p>
       ) : (
-        <div className="booking-management-list">{bookingsPagination.pageItems.map(b => (
+        <div className="booking-management-list">{bookingsPagination.pageItems.map(b => {
+          const canCancel = String(b.booking_date || '').slice(0, 10) > todayKey;
+          return (
           <div key={b.booking_id}>
             <article className="manager-booking-customer-card">
               <div className="manager-booking-customer-primary">
@@ -263,11 +294,14 @@ export default function BookingManagement() {
                 <button
                   type="button"
                   className="btn secondary"
-                  style={{ padding: '4px 12px', fontSize: '0.8rem', borderColor: 'var(--rust)', color: 'var(--rust)' }}
-                  onClick={() => handleCancel(b.booking_id)}
+                  style={{ padding: '4px 12px', fontSize: '0.8rem', borderColor: 'var(--rust)', color: 'var(--rust)', opacity: canCancel ? 1 : 0.5, cursor: canCancel ? 'pointer' : 'not-allowed' }}
+                  onClick={() => canCancel && requestCancel(b)}
+                  disabled={!canCancel}
+                  title={canCancel ? 'Cancel this booking' : 'Same-day cancellations are not available'}
                 >
                   Cancel
                 </button>
+                {!canCancel && <span className="booking-cancel-unavailable">Same-day cancellations are not available</span>}
               </div>
               </article>
 
@@ -397,7 +431,8 @@ export default function BookingManagement() {
               </div>
             )}
           </div>
-        ))}</div>
+          );
+        })}</div>
       )}
           <Pagination
             page={bookingsPagination.page}
@@ -407,6 +442,58 @@ export default function BookingManagement() {
           />
         </section>
       </div>
+      {bookingToCancel && (
+        <div
+          className="booking-cancel-overlay"
+          onMouseDown={event => {
+            if (event.target === event.currentTarget && !cancellationLoading) setBookingToCancel(null);
+          }}
+        >
+          <section
+            className="booking-cancel-dialog"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="booking-cancel-title"
+            aria-describedby="booking-cancel-description"
+          >
+            <span className="booking-cancel-eyebrow">BOOKING CANCELLATION</span>
+            <h2 id="booking-cancel-title">Cancel this booking?</h2>
+            <div className="booking-cancel-summary">
+              <strong>Booking #{bookingToCancel.booking_id}</strong>
+              <span>{String(bookingToCancel.booking_date || '').slice(0, 10)} at {String(bookingToCancel.booking_time || '').slice(0, 5)}</span>
+              <span>Table #{bookingToCancel.table_number || bookingToCancel.table_id} · Party of {bookingToCancel.party_size}</span>
+            </div>
+            <p id="booking-cancel-description" className="booking-cancel-policy">
+              This booking is eligible for cancellation because it is at least one calendar day away. Your cancellation will add one permanent flag.
+            </p>
+            <div className="booking-cancel-warning">
+              Your current total is <strong>{user?.cancellation_flags || 0} / 4 flags</strong>.
+              {Number(user?.cancellation_flags || 0) >= 3
+                ? ' This cancellation will reach the limit of 4 and disable your account. This email cannot be used to register again.'
+                : ` After cancellation, your total will be ${Number(user?.cancellation_flags || 0) + 1} / 4. Flags do not expire.`}
+            </div>
+            {cancellationError && <p className="error-text" role="alert">{cancellationError}</p>}
+            <div className="booking-cancel-actions">
+              <button
+                type="button"
+                className="btn secondary"
+                onClick={() => setBookingToCancel(null)}
+                disabled={cancellationLoading}
+              >
+                Keep booking
+              </button>
+              <button
+                type="button"
+                className="btn booking-cancel-confirm"
+                onClick={handleCancel}
+                disabled={cancellationLoading}
+              >
+                {cancellationLoading ? 'Cancelling…' : 'Confirm cancellation'}
+              </button>
+            </div>
+          </section>
+        </div>
+      )}
     </div>
   );
 }
