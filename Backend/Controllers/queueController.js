@@ -14,7 +14,6 @@ function setSocketIo(io) {
 const QUEUE_GROUPS = ['A', 'B', 'C'];
 const MAX_QUEUE_NUMBER = 999;
 const AUTO_CALL_MISSED_AFTER_MS = 10_000; // unseated call -> missed
-const DINING_SESSION_MS = 60 * 60 * 1000; // 1 hour hardcoded
 
 function getGroupPrefix(party_size) {
   if (party_size <= 2) return 'A';
@@ -143,7 +142,7 @@ async function join(req, res) {
     if (missedCheck[0].miss_count >= 1) {
       await conn.rollback();
       return res.status(403).json({
-        error: 'You have already missed your turn once. Please see the manager to rejoin.',
+        error: 'You have already missed your turn today. Please speak with the manager for assistance.',
       });
     }
 
@@ -672,86 +671,6 @@ async function cancel(req, res) {
   }
 }
 
-// PATCH /api/queue/:id/reissue — manager issues a new ticket for a missed entry
-async function reissue(req, res) {
-  const { id } = req.params;
-  const conn = await db.getConnection();
-
-  try {
-    await conn.beginTransaction();
-
-    const [entry] = await conn.query(
-      `SELECT user_id, party_size, DATE_FORMAT(queue_date, '%Y-%m-%d') AS queue_date
-       FROM queue_entries WHERE queue_id = ? AND status = 'missed' FOR UPDATE`,
-      [id]
-    );
-    if (entry.length === 0) {
-      await conn.rollback();
-      return res.status(400).json({ error: 'Queue entry not found or not missed.' });
-    }
-
-    const { user_id, party_size, queue_date } = entry[0];
-    if (queue_date !== getRestaurantDateKey()) {
-      await conn.rollback();
-      return res.status(409).json({ error: 'Only today’s missed tickets can be reissued.' });
-    }
-    const prefix = getGroupPrefix(party_size);
-
-    await conn.query(
-      `SELECT group_code FROM queue_auto_call_settings WHERE group_code = ? FOR UPDATE`,
-      [prefix]
-    );
-
-    const [active] = await conn.query(
-      `SELECT queue_id FROM queue_entries
-       WHERE user_id = ? AND queue_date = ? AND status IN ('queued','called','serving')`,
-      [user_id, queue_date]
-    );
-    if (active.length > 0) {
-      await conn.rollback();
-      return res.status(400).json({ error: 'Customer already has an active ticket.' });
-    }
-
-    const [lastRows] = await conn.query(
-      `SELECT queue_number FROM queue_entries
-       WHERE queue_date = ? AND queue_number LIKE ?
-       ORDER BY queue_number DESC LIMIT 1 FOR UPDATE`,
-      [queue_date, `${prefix}%`]
-    );
-
-    let nextNum = 1;
-    if (lastRows.length > 0) {
-      const lastNum = parseInt(lastRows[0].queue_number.slice(1), 10);
-      if (lastNum >= MAX_QUEUE_NUMBER) {
-        await conn.rollback();
-        return res.status(409).json({ error: 'This queue group has reached its daily ticket limit (999).' });
-      }
-      nextNum = lastNum + 1;
-    }
-    const new_queue_number = `${prefix}${String(nextNum).padStart(3, '0')}`;
-
-    const [result] = await conn.query(
-      `INSERT INTO queue_entries (user_id, party_size, queue_number, queue_date, status, rejoin_count)
-       VALUES (?, ?, ?, ?, 'queued', ?)`,
-      [user_id, party_size, new_queue_number, queue_date, 1]
-    );
-
-    await conn.commit();
-    emit(req, { action: 'reissue', queueId: result.insertId, queueNumber: new_queue_number });
-    return res.status(201).json({
-      message: 'New queue ticket reissued',
-      queueId: result.insertId,
-      queueNumber: new_queue_number,
-    });
-  } catch (err) {
-    await conn.rollback();
-    console.error('reissue queue error:', err);
-    return res.status(500).json({ error: 'Please try again later.' });
-  } finally {
-    conn.release();
-  }
-}
-
 module.exports = {
   setSocketIo,
   listAll,
@@ -768,5 +687,4 @@ module.exports = {
   finish,
   pay,
   cancel,
-  reissue,
 };

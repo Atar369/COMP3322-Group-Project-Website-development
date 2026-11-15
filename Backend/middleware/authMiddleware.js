@@ -16,7 +16,7 @@ exports.verifyToken = async (req, res, next) => {
   try {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
     const [users] = await db.query(
-      'SELECT role, account_disabled FROM users WHERE user_id = ?',
+      'SELECT user_id, email, role, account_disabled FROM users WHERE user_id = ?',
       [decoded.user_id]
     );
     if (users.length === 0) {
@@ -29,7 +29,11 @@ exports.verifyToken = async (req, res, next) => {
       });
     }
 
-    req.user = decoded; // { user_id, email, role }
+    req.user = {
+      user_id: users[0].user_id,
+      email: users[0].email,
+      role: users[0].role,
+    };
     return next();
   } catch (err) {
     if (err.name === 'TokenExpiredError') {

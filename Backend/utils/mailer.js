@@ -33,8 +33,6 @@ async function buildTransporter() {
     );
   }
 
-  // Dev fallback: Ethereal fake SMTP. Messages are viewable at
-  // https://ethereal.email/messages after logging in with the generated account.
   const testAccount = await nodemailer.createTestAccount();
   cachedTransporter = nodemailer.createTransport({
     host: 'smtp.ethereal.email',
@@ -45,7 +43,6 @@ async function buildTransporter() {
   console.log('\n=== Ethereal test SMTP account ===');
   console.log(`User: ${testAccount.user}`);
   console.log(`Pass: ${testAccount.pass}`);
-  console.log('View messages: https://ethereal.email/messages');
   console.log('=================================\n');
   return cachedTransporter;
 }

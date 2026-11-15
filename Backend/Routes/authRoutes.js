@@ -12,6 +12,7 @@ router.post('/resend-verification', authController.resendEmailVerification);
 router.post('/create-manager', verifyToken, requireRole('manager'), authController.createManager);
 
 router.get('/me', verifyToken, authController.me);
+router.patch('/profile', verifyToken, authController.updateProfile);
 router.post('/change-password', verifyToken, authController.changePassword);
 
 router.post('/forgot-password', authController.forgotPassword);

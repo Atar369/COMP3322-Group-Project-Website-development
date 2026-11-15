@@ -21,6 +21,5 @@ router.patch('/:id/checkin', verifyToken, requireRole('manager'), queueControlle
 router.patch('/:id/seat', verifyToken, requireRole('manager'), queueController.seat);
 router.patch('/:id/finish', verifyToken, requireRole('manager'), queueController.finish);
 router.patch('/:id/pay', verifyToken, requireRole('manager'), queueController.pay);
-router.patch('/:id/reissue', verifyToken, requireRole('manager'), queueController.reissue);
 
 module.exports = router;
