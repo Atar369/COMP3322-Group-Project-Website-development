@@ -369,13 +369,18 @@ async function edit(request, response) {
     return response.status(400).json({error: "Invalid party size."});
   }
 
+  const connection = await db.getConnection();
+
   try {
-    const [existingRows] = await db.query(
-      `SELECT booking_id, user_id, status FROM bookings WHERE booking_id = ?`,
+    await connection.beginTransaction();
+
+    const [existingRows] = await connection.query(
+      `SELECT booking_id, user_id, status FROM bookings WHERE booking_id = ? FOR UPDATE`,
       [id]
     );
 
     if (existingRows.length === 0) {
+      await connection.rollback();
       return response.status(404).json({error: "Booking not found."});
     }
 
@@ -396,29 +401,33 @@ async function edit(request, response) {
         AND booking_id != ?
     ) AS has_booking;`;
 
-    const [userRows] = await db.query(checkUserDaily, [user_id, booking_date, id]);
+    const [userRows] = await connection.query(checkUserDaily, [user_id, booking_date, id]);
     if (userRows[0].has_booking === 1) {
+      await connection.rollback();
       return response.status(409).json({error: "You can only make one booking per day."});
     }
 
-    const [tableRows] = await db.query(
+    const [tableRows] = await connection.query(
       `SELECT capacity, status FROM restaurant_tables WHERE table_id = ?`,
       [table_id]
     );
 
     if (tableRows.length === 0) {
+      await connection.rollback();
       return response.status(404).json({error: "Selected table not found."});
     }
 
     const tar = tableRows[0];
 
     if (tar.status !== 'available') {
+      await connection.rollback();
       return response.status(400).json({error: "Selected table is not available."});
     }
 
     const maxCap = size + 2;
 
     if (tar.capacity < size || tar.capacity > maxCap) {
+      await connection.rollback();
       return response.status(400).json({error: "The selected table does not match the party size requirements."});
     }
 
@@ -433,9 +442,10 @@ async function edit(request, response) {
         AND ADDTIME(?, '01:00:00') > booking_time
     ) AS is_booked;`;
 
-    const [conflictRows] = await db.query(checkConflict, [table_id, booking_date, id, booking_time, booking_time]);
+    const [conflictRows] = await connection.query(checkConflict, [table_id, booking_date, id, booking_time, booking_time]);
     
     if (conflictRows[0].is_booked === 1) {
+      await connection.rollback();
       return response.status(409).json({error: "The table is already booked for this timeslot."});
     }
 
@@ -445,7 +455,7 @@ async function edit(request, response) {
       WHERE booking_id = ?
       AND status = 'booked'`;
 
-    const [result] = await db.query(update, [
+    const [result] = await connection.query(update, [
       table_id,
       booking_date,
       booking_time,
@@ -456,16 +466,22 @@ async function edit(request, response) {
     ]);
 
     if (result.affectedRows === 0) {
+      await connection.rollback();
       return response.status(404).json({error: "Failed to edit the booking."});
     }
 
+    await connection.commit();
+
     return response.json({message: "Booking updated successfully."});
   } catch (error) {
+    await connection.rollback();
     if (error.code === "ER_DUP_ENTRY") {
       return response.status(409).json({error: "The table is already booked for this timeslot."});
     }
     console.error("database error:", error);
     return response.status(500).json({error: "Please try again later."});
+  } finally {
+    connection.release();
   }
 }
 
