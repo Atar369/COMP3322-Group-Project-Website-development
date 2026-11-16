@@ -64,11 +64,11 @@ async function dashboardData(request, response) {
         queryParams
       ),
       db.query(
-        `SELECT DATE(DATE_ADD(order_time, INTERVAL 8 HOUR)) AS date,
+        `SELECT DATE_FORMAT(DATE_ADD(order_time, INTERVAL 8 HOUR), '%Y-%m-%d') AS date,
                 COALESCE(SUM(total_amount), 0.00) AS revenue
          FROM orders
          WHERE order_time >= ? AND order_time < ? AND payment_status = 'paid'
-         GROUP BY DATE(DATE_ADD(order_time, INTERVAL 8 HOUR))
+         GROUP BY date
          ORDER BY date`,
         queryParams
       ),
@@ -87,9 +87,10 @@ async function dashboardData(request, response) {
         `SELECT HOUR(DATE_ADD(order_time, INTERVAL 8 HOUR)) AS hour, COUNT(*) AS orders
          FROM orders
          WHERE order_time >= ? AND order_time < ?
+           AND payment_status = 'paid'
            AND HOUR(DATE_ADD(order_time, INTERVAL 8 HOUR)) >= 10
            AND HOUR(DATE_ADD(order_time, INTERVAL 8 HOUR)) < 22
-         GROUP BY HOUR(DATE_ADD(order_time, INTERVAL 8 HOUR))
+         GROUP BY hour
          ORDER BY hour`,
         queryParams
       ),
@@ -107,7 +108,7 @@ async function dashboardData(request, response) {
             : null,
         },
         charts: {
-          revenueTrend: revenueRows.map(row => ({ date: row.date, revenue: Number(row.revenue) })),
+          revenueTrend: revenueRows.map(row => ({ date: String(row.date).slice(0, 10), revenue: Number(row.revenue) })),
           topItems: topItemRows.map(row => ({ name: row.name, qty: Number(row.qty) })),
           ordersByHour: hourRows.map(row => ({ hour: Number(row.hour), orders: Number(row.orders) })),
         },
