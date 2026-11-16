@@ -3,13 +3,16 @@ import { useAuth } from '../context/AuthContext';
 import api from '../services/api';
 
 export default function ProfilePage() {
-  const { user } = useAuth();
+  const { user, updateUser } = useAuth();
   const [isEditing, setIsEditing] = useState(false);
   const [form, setForm] = useState({
     name: user?.name || '',
     email: user?.email || '',
     phone: user?.phone || '',
   });
+  const [saving, setSaving] = useState(false);
+  const [profileError, setProfileError] = useState('');
+  const [profileSuccess, setProfileSuccess] = useState('');
 
   const [pwForm, setPwForm] = useState({ currentPassword: '', newPassword: '', confirmPassword: '' });
   const [pwError, setPwError] = useState('');
@@ -20,7 +23,45 @@ export default function ProfilePage() {
     setForm(prev => ({ ...prev, [field]: value }));
   }
 
-  function handleSave() {
+  // Saves name and phone to the server, then updates the logged-in user in memory.
+  async function handleSave() {
+    setProfileError('');
+    setProfileSuccess('');
+
+    const name = form.name.trim();
+    const phone = form.phone.trim();
+    if (!name || !phone) {
+      setProfileError('Name and phone are required.');
+      return;
+    }
+
+    setSaving(true);
+    try {
+      const res = await api.patch('/auth/profile', { name, phone });
+      const saved = res.data?.user || { name, phone };
+      updateUser(saved);
+      setForm(prev => ({
+        ...prev,
+        name: saved.name ?? name,
+        phone: saved.phone ?? phone,
+      }));
+      setIsEditing(false);
+      setProfileSuccess('Your information has been updated.');
+    } catch (err) {
+      setProfileError(err.response?.data?.error || 'Could not save your changes. Please try again.');
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  // Discards edits and restores the values stored on the server.
+  function handleCancel() {
+    setForm({
+      name: user?.name || '',
+      email: user?.email || '',
+      phone: user?.phone || '',
+    });
+    setProfileError('');
     setIsEditing(false);
   }
 
@@ -28,8 +69,9 @@ export default function ProfilePage() {
     e.preventDefault();
     setPwError('');
     setPwSuccess('');
-    if (pwForm.newPassword.length < 6) {
-      setPwError('New password must be at least 6 characters.');
+    const minPasswordLength = user?.role === 'manager' ? 12 : 8;
+    if (pwForm.newPassword.length < minPasswordLength) {
+      setPwError(`New password must be at least ${minPasswordLength} characters.`);
       return;
     }
     if (pwForm.newPassword !== pwForm.confirmPassword) {
@@ -37,7 +79,7 @@ export default function ProfilePage() {
       return;
     }
     try {
-      const res = await api.post('/auth/change-password', {
+      await api.post('/auth/change-password', {
         currentPassword: pwForm.currentPassword,
         newPassword: pwForm.newPassword,
       });
@@ -60,22 +102,27 @@ export default function ProfilePage() {
           </p>
         </div>
       )}
+
+      {profileSuccess && <p style={{ color: 'var(--green)', fontWeight: 600 }}>{profileSuccess}</p>}
+      {profileError && <p className="error-text">{profileError}</p>}
+
       {isEditing ? (
         <form onSubmit={e => { e.preventDefault(); handleSave(); }}>
           <div className="field">
             <label>Full Name</label>
-            <input value={form.name} onChange={e => handleChange('name', e.target.value)} />
+            <input value={form.name} onChange={e => handleChange('name', e.target.value)} required />
           </div>
           <div className="field">
             <label>Email</label>
-            <input type="email" value={form.email} onChange={e => handleChange('email', e.target.value)} />
+            <input type="email" value={form.email} readOnly style={{ background: 'var(--paper-dim)' }} />
+            <small style={{ color: '#6b6558' }}>Your email is used to sign in and cannot be changed here.</small>
           </div>
           <div className="field">
             <label>Phone</label>
-            <input value={form.phone} onChange={e => handleChange('phone', e.target.value)} />
+            <input value={form.phone} onChange={e => handleChange('phone', e.target.value)} required />
           </div>
-          <button className="btn" type="submit">Save</button>
-          <button className="btn secondary" style={{ marginLeft: 8 }} onClick={() => setIsEditing(false)}>Cancel</button>
+          <button className="btn" type="submit" disabled={saving}>{saving ? 'Saving…' : 'Save'}</button>
+          <button className="btn secondary" type="button" style={{ marginLeft: 8 }} onClick={handleCancel} disabled={saving}>Cancel</button>
         </form>
       ) : (
         <div className="card">
@@ -94,7 +141,7 @@ export default function ProfilePage() {
             <span className="leader" />
             <span className="price">{form.phone}</span>
           </div>
-          <button className="btn" onClick={() => setIsEditing(true)} style={{ marginTop: 16 }}>Edit Information</button>
+          <button className="btn" onClick={() => { setProfileSuccess(''); setIsEditing(true); }} style={{ marginTop: 16 }}>Edit Information</button>
         </div>
       )}
 

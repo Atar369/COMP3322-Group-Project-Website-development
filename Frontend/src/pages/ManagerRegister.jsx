@@ -34,8 +34,14 @@ export default function ManagerRegister() {
           <input value={form.phone} onChange={e => update('phone', e.target.value)} required />
         </div>
         <div className="field">
-          <label>Password</label>
-          <input type="password" value={form.password} onChange={e => update('password', e.target.value)} required />
+          <label>Password (at least 12 characters)</label>
+          <input
+            type="password"
+            minLength={12}
+            value={form.password}
+            onChange={e => update('password', e.target.value)}
+            required
+          />
         </div>
         {error && <p className="error-text">{error}</p>}
         <button className="btn" type="submit">Register</button>

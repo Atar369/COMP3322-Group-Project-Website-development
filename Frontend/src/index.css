@@ -168,6 +168,26 @@ a { color: inherit; }
 .btn.secondary { background: transparent; color: var(--ink); border: 1px solid var(--ink); }
 .btn.danger { background: var(--rust); }
 
+/* Buttons placed on light sections need dark colors */
+.light-section .hero-btn.outline {
+  color: var(--ink);
+  border-color: var(--ink);
+}
+.light-section .hero-btn.outline:hover {
+  background: var(--ink);
+  color: var(--paper);
+}
+.light-section .hero-btn:not(.outline) {
+  background: var(--ink);
+  color: var(--paper);
+  border-color: var(--ink);
+}
+.light-section .hero-btn:not(.outline):hover {
+  background: var(--mustard);
+  border-color: var(--mustard);
+  color: var(--ink);
+}
+
 .field { display: flex; flex-direction: column; gap: 6px; margin-bottom: 16px; }
 .field label { font-size: 0.85rem; font-weight: 600; }
 .field input, .field select, .field textarea {

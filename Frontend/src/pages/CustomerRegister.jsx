@@ -54,10 +54,10 @@ export default function CustomerRegister() {
           <input value={form.phone} onChange={e => update('phone', e.target.value)} required />
         </div>
         <div className="field">
-          <label>Password</label>
+          <label>Password (at least 8 characters)</label>
           <input
             type="password"
-            minLength={6}
+            minLength={8}
             value={form.password}
             onChange={e => update('password', e.target.value)}
             required
