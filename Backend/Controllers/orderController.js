@@ -15,8 +15,7 @@ async function listAll(req, res) {
               active_sessions.booking_date, active_sessions.booking_time,
               active_sessions.party_size, active_sessions.special_request,
               active_sessions.session_status, active_sessions.served_at,
-              o.order_id, o.order_time, o.total_amount, o.payment_status,
-              oi.order_item_id, oi.quantity, oi.unit_price, oi.subtotal, m.name AS item_name
+              o.order_id, o.order_time, o.total_amount, o.payment_status
        FROM (
          SELECT 'booking' AS session_type, b.booking_id AS session_id, b.user_id, u.name AS customer_name,
                 b.table_id, t.table_number, b.booking_date, b.booking_time,
@@ -38,11 +37,12 @@ async function listAll(req, res) {
          ON ((active_sessions.session_type = 'booking' AND o.booking_id = active_sessions.session_id)
           OR (active_sessions.session_type = 'queue' AND o.queue_id = active_sessions.session_id))
          AND o.payment_status = 'unpaid'
-       LEFT JOIN order_items oi ON oi.order_id = o.order_id
-       LEFT JOIN menu_items m ON m.item_id = oi.item_id
-       ORDER BY active_sessions.table_id, o.order_time, o.order_id, oi.order_item_id`
+       ORDER BY active_sessions.table_id, o.order_time, o.order_id`
     );
+
     const sessions = new Map();
+    const orderMap = new Map();
+
     for (const row of rows) {
       const key = `${row.session_type}-${row.session_id}`;
       let session = sessions.get(key);
@@ -60,36 +60,49 @@ async function listAll(req, res) {
           special_request: row.special_request,
           session_status: row.session_status,
           served_at: row.served_at,
-          orders: new Map(),
+          orders: [],
         };
         sessions.set(key, session);
       }
-      if (row.order_id == null) continue;
 
-      let order = session.orders.get(row.order_id);
-      if (!order) {
-        order = {
+      if (row.order_id != null && !orderMap.has(row.order_id)) {
+        const order = {
           order_id: row.order_id,
           order_time: row.order_time,
           total_amount: row.total_amount,
           items: [],
         };
-        session.orders.set(row.order_id, order);
-      }
-      if (row.order_item_id != null) {
-        order.items.push({
-          order_item_id: row.order_item_id,
-          name: row.item_name,
-          quantity: row.quantity,
-          unit_price: row.unit_price,
-          subtotal: row.subtotal,
-        });
+        orderMap.set(row.order_id, order);
+        session.orders.push(order);
       }
     }
-    return res.json([...sessions.values()].map(session => ({
-      ...session,
-      orders: [...session.orders.values()],
-    })));
+
+    if (orderMap.size > 0) {
+      const orderIds = [...orderMap.keys()];
+      const placeholders = orderIds.map(() => '?').join(', ');
+      const [items] = await db.query(
+        `SELECT oi.order_id, oi.order_item_id, oi.quantity, oi.unit_price, oi.subtotal, m.name AS item_name
+         FROM order_items oi
+         JOIN menu_items m ON m.item_id = oi.item_id
+         WHERE oi.order_id IN (${placeholders})
+         ORDER BY oi.order_item_id`,
+        orderIds
+      );
+      for (const item of items) {
+        const order = orderMap.get(item.order_id);
+        if (order) {
+          order.items.push({
+            order_item_id: item.order_item_id,
+            name: item.item_name,
+            quantity: item.quantity,
+            unit_price: item.unit_price,
+            subtotal: item.subtotal,
+          });
+        }
+      }
+    }
+
+    return res.json([...sessions.values()]);
   } catch (err) {
     console.error('listAll orders error:', err);
     return res.status(500).json({ error: 'Please try again later.' });
@@ -104,50 +117,49 @@ async function listManagerHistory(req, res) {
               COALESCE(o.table_id, b.table_id, q.table_id) AS table_id,
               t.table_number, COALESCE(b.party_size, q.party_size) AS party_size,
               b.booking_date, b.booking_time, b.special_request, q.queue_number,
-              u.name AS customer_name,
-              oi.order_item_id, oi.quantity, oi.unit_price, oi.subtotal,
-              m.name AS item_name
+              u.name AS customer_name
        FROM orders o
        JOIN users u ON u.user_id = o.user_id
        LEFT JOIN bookings b ON b.booking_id = o.booking_id
        LEFT JOIN queue_entries q ON q.queue_id = o.queue_id
        LEFT JOIN restaurant_tables t ON t.table_id = COALESCE(o.table_id, b.table_id, q.table_id)
-       LEFT JOIN order_items oi ON oi.order_id = o.order_id
-       LEFT JOIN menu_items m ON m.item_id = oi.item_id
        WHERE o.payment_status = 'paid'
-       ORDER BY o.updated_at DESC, o.order_id DESC, oi.order_item_id`
+       ORDER BY o.updated_at DESC, o.order_id DESC`
     );
     const orders = new Map();
     for (const row of rows) {
-      let order = orders.get(row.order_id);
-      if (!order) {
-        order = {
-          order_id: row.order_id,
-          order_time: row.order_time,
-          paid_at: row.paid_at,
-          total_amount: row.total_amount,
-          table_id: row.table_id,
-          table_number: row.table_number,
-          party_size: row.party_size,
-          booking_date: row.booking_date,
-          booking_time: row.booking_time,
-          special_request: row.special_request,
-          queue_number: row.queue_number,
-          customer_name: row.customer_name,
-          items: [],
-        };
-        orders.set(row.order_id, order);
-      }
-      if (row.order_item_id != null) {
-        order.items.push({
-          order_item_id: row.order_item_id,
-          name: row.item_name,
-          quantity: row.quantity,
-          unit_price: row.unit_price,
-          subtotal: row.subtotal,
-        });
+      orders.set(row.order_id, {
+        ...row,
+        items: [],
+      });
+    }
+
+    if (orders.size > 0) {
+      const orderIds = [...orders.keys()];
+      const placeholders = orderIds.map(() => '?').join(', ');
+      const [items] = await db.query(
+        `SELECT oi.order_id, oi.order_item_id, oi.quantity, oi.unit_price, oi.subtotal, m.name AS item_name
+         FROM order_items oi
+         JOIN menu_items m ON m.item_id = oi.item_id
+         WHERE oi.order_id IN (${placeholders})
+         ORDER BY oi.order_item_id`,
+        orderIds
+      );
+
+      for (const item of items) {
+        const order = orders.get(item.order_id);
+        if (order) {
+          order.items.push({
+            order_item_id: item.order_item_id,
+            name: item.item_name,
+            quantity: item.quantity,
+            unit_price: item.unit_price,
+            subtotal: item.subtotal,
+          });
+        }
       }
     }
+
     return res.json([...orders.values()]);
   } catch (err) {
     console.error('listManagerHistory orders error:', err);
@@ -165,7 +177,6 @@ async function create(req, res) {
   if (Boolean(booking_id) === Boolean(queue_id)) {
     return res.status(400).json({ error: 'Exactly one seated booking or queue entry is required.' });
   }
-  const total = items.reduce((s, i) => s + Number(i.unit_price) * Number(i.quantity), 0);
 
   const conn = await db.getConnection();
   try {
@@ -224,7 +235,7 @@ async function create(req, res) {
       }
 
       const quantity = Number(item.quantity);
-      if (isNaN(quantity) || quantity <= 0) {
+      if (!Number.isInteger(quantity) || quantity <= 0) {
         await conn.rollback();
         return res.status(400).json({ error: `Invalid quantity for item "${menuItem.name}".` });
       }
@@ -234,22 +245,16 @@ async function create(req, res) {
       validItems.push({ 
         item_id: menuItem.item_id, 
         quantity: quantity, 
-        unit_price: unitPrice 
+        unit_price: unitPrice,
       });
     }
 
     const [result] = await conn.query(
       `INSERT INTO orders (user_id, booking_id, queue_id, table_id, status, total_amount, payment_status)
-       SELECT ?, ?, ?, ?, 'pending', ?, 'unpaid'
-       WHERE HOUR(DATE_ADD(UTC_TIMESTAMP(), INTERVAL 8 HOUR)) < 21
-          OR (HOUR(DATE_ADD(UTC_TIMESTAMP(), INTERVAL 8 HOUR)) = 21
-              AND MINUTE(DATE_ADD(UTC_TIMESTAMP(), INTERVAL 8 HOUR)) < 45)`,
+       VALUES (?, ?, ?, ?, 'pending', ?, 'unpaid')`,
       [user_id, booking_id || null, queue_id || null, table_id, total]
     );
-    if (!result.affectedRows) {
-      await conn.rollback();
-      return res.status(409).json({ error: 'Order placement ends at 9:45 PM.' });
-    }
+    
     const order_id = result.insertId;
     for (const item of validItems) {
       await conn.query(
@@ -319,7 +324,7 @@ async function listByUser(req, res) {
          AND (o.user_id = ? OR EXISTS (
            SELECT 1 FROM bookings customer_booking
            WHERE customer_booking.user_id = ?
-             AND customer_booking.table_id = COALESCE(o.table_id, b.table_id)
+             AND customer_booking.booking_id = o.booking_id
              AND customer_booking.status IN ('serving', 'finished')
          ))
        ORDER BY COALESCE(o.table_id, b.table_id), o.order_time DESC`,
@@ -347,14 +352,9 @@ async function listHistoryByUser(req, res) {
        FROM orders o
        LEFT JOIN bookings b ON b.booking_id = o.booking_id
        LEFT JOIN queue_entries q ON q.queue_id = o.queue_id
-       WHERE o.user_id = ? OR EXISTS (
-         SELECT 1 FROM bookings customer_booking
-         WHERE customer_booking.user_id = ?
-           AND customer_booking.table_id = COALESCE(o.table_id, b.table_id, q.table_id)
-           AND customer_booking.status IN ('serving', 'finished')
-       )
+       WHERE o.user_id = ? 
        ORDER BY o.order_time DESC, o.order_id DESC`,
-      [user_id, user_id]
+      [user_id]
     );
     return res.json(rows);
   } catch (err) {
