@@ -50,13 +50,16 @@ function attachQueueSocket(io) {
 
   io.on('connection', socket => {
     socket.join('queue:public');
+    socket.join('orders:public');
 
     if (socket.user?.role === 'customer') {
       socket.join(`queue:user:${socket.user.user_id}`);
+      socket.join(`orders:user:${socket.user.user_id}`);
     }
 
     if (socket.user?.role === 'manager') {
       socket.join('queue:manager');
+      socket.join('orders:manager');
     }
 
     socket.on('disconnect', () => {
@@ -80,4 +83,13 @@ function emitQueueUpdate(io, payload = {}) {
   io.to('queue:manager').emit('queue:manager-update', payload);
 }
 
-module.exports = { attachQueueSocket, emitQueueUpdate };
+function emitOrderUpdate(io, payload = {}) {
+  if (!io) return;
+  io.to('orders:manager').emit('order:update', payload);
+
+  if (payload.userId) {
+    io.to(`orders:user:${payload.userId}`).emit('order:status-update', payload);
+  }
+}
+
+module.exports = { attachQueueSocket, emitQueueUpdate, emitOrderUpdate };

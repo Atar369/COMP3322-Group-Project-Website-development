@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useMemo } from 'react';
 import api from '../../services/api';
 import Pagination, { usePagination } from '../../components/Pagination';
 import { formatRestaurantDateTime, getRestaurantDateForTimestamp, getRestaurantTimestamp } from '../../utils/restaurantTime';
+import {socket} from '../../socket';
 
 const DINING_SESSION_MS = 60 * 60 * 1000;
 
@@ -143,13 +144,30 @@ export default function ManagerOrders() {
 
   useEffect(() => {
     load();
-    const refresh = setInterval(load, 5000);
-    const clock = setInterval(() => setNow(Date.now()), 1000);
+
+    if (!socket.connected) {
+      socket.connect();
+    }
+
+    const handleOrderUpdate = (payload) => {
+      console.log('Received live order update:', payload);
+      load();
+    };
+
+    socket.on('order:update', handleOrderUpdate);
+
+    const fallbackPoll = setInterval(load, 15000);
+
     return () => {
-      clearInterval(refresh);
-      clearInterval(clock);
+      socket.off('order:update', handleOrderUpdate);
+      clearInterval(fallbackPoll);
     };
   }, [load]);
+
+  useEffect(() => {
+    const timer = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(timer);
+  }, []);
 
   useEffect(() => {
     if (activeView !== 'history') return undefined;

@@ -263,6 +263,13 @@ async function create(req, res) {
       );
     }
     await conn.commit();
+
+    const io = req.app.get('io');
+    if (io) {
+      const {emitOrderUpdate} = require('../socket');
+      emitOrderUpdate(io, {type: 'new_order', orderId: order_id, userId: user_id});
+    }
+    
     return res.status(201).json({ orderId: order_id });
   } catch (err) {
     await conn.rollback();
@@ -432,11 +439,18 @@ async function advanceStatus(req, res) {
   const { id } = req.params;
   const NEXT = { pending: 'preparing', preparing: 'ready' };
   try {
-    const [rows] = await db.query('SELECT status FROM orders WHERE order_id = ?', [id]);
+    const [rows] = await db.query('SELECT status, user_id FROM orders WHERE order_id = ?', [id]);
     if (!rows.length) return res.status(404).json({ error: 'Order not found.' });
     const next = NEXT[rows[0].status];
     if (!next) return res.status(400).json({ error: 'Cannot advance from this status.' });
     await db.query('UPDATE orders SET status = ? WHERE order_id = ?', [next, id]);
+
+    const io = req.app.get('io');
+    if (io) {
+      const {emitOrderUpdate} = require('../socket');
+      emitOrderUpdate(io, {type: 'status_changed', orderId: id, status: next, userId: rows[0].user_id});
+    }
+
     return res.json({ status: next });
   } catch (err) {
     console.error('advanceStatus error:', err);
@@ -448,12 +462,22 @@ async function advanceStatus(req, res) {
 async function finishOrder(req, res) {
   const { id } = req.params;
   try {
+    const [orderRows] = await db.query(
+      'SELECT user_id FROM orders WHERE order_id = ?', [id]
+    );
     const [result] = await db.query(
       `UPDATE orders SET payment_status = 'pending_payment'
        WHERE order_id = ? AND user_id = ? AND status = 'ready'`,
       [id, req.user.user_id]
     );
     if (!result.affectedRows) return res.status(400).json({ error: 'Order not ready or already processed.' });
+
+    const io = req.app.get('io');
+    if (io) {
+      const {emitOrderUpdate} = require('../socket');
+      emitOrderUpdate(io, {type: 'payment_requested', orderId: id, userId: orderRows[0]?.user_id});
+    }
+    
     return res.json({ message: 'Manager has been notified to collect payment.' });
   } catch (err) {
     console.error('finishOrder error:', err);
@@ -465,11 +489,21 @@ async function finishOrder(req, res) {
 async function markPaid(req, res) {
   const { id } = req.params;
   try {
+    const [rows] = await db.query(
+      'SELECT user_id FROM orders WHERE order_id = ?', [id]
+    );
     const [result] = await db.query(
       `UPDATE orders SET status = 'completed', payment_status = 'paid' WHERE order_id = ?`,
       [id]
     );
     if (!result.affectedRows) return res.status(404).json({ error: 'Order not found.' });
+
+    const io = req.app.get('io');
+    if (io) {
+      const {emitOrderUpdate} = require('../socket');
+      emitOrderUpdate(io, {type: 'order_paid', orderId: id, userId: rows[0]?.user_id});
+    }
+    
     return res.json({ message: 'Order marked as paid.' });
   } catch (err) {
     console.error('markPaid error:', err);
