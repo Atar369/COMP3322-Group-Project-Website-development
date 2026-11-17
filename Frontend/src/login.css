@@ -202,6 +202,16 @@
   padding-right: 52px;
 }
 
+.field .register-password__input {
+  width: 100%;
+  padding-right: 52px;
+}
+
+.register-password .cl-login01__eye {
+  top: 50%;
+  transform: translateY(-50%);
+}
+
 .cl-login01__eye {
   position: absolute;
   top: 4px;
