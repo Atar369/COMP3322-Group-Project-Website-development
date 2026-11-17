@@ -39,7 +39,7 @@ const STATUS_COPY = {
   queued: { title: 'You are in the queue', text: 'This page updates automatically when your number is called.' },
   called: { title: '🔔 Called — please proceed to the counter', text: 'Your table is ready. Please see our host now.' },
   serving: { title: 'You are now seated', text: 'You may place your order.' },
-  missed: { title: 'You missed your turn', text: 'You have already missed your turn once. Please see the manager to rejoin.' },
+  missed: { title: 'You missed your turn', text: 'Please go straight to a staff member. If the number being called in your group is no more than 25 numbers after yours, they can add you back with the highest priority.' },
 };
 
 function PersonIcon() {
@@ -56,6 +56,8 @@ export default function Queue() {
   const [partySize, setPartySize] = useState(2);
   const [myEntry, setMyEntry] = useState(null);
   const [allQueue, setAllQueue] = useState([]);
+  const [nextTicketNumber, setNextTicketNumber] = useState('');
+  const [nextTicketNumberError, setNextTicketNumberError] = useState('');
   const [joinError, setJoinError] = useState('');
   const [joinMessage, setJoinMessage] = useState('');
   const [queueActionError, setQueueActionError] = useState('');
@@ -79,6 +81,19 @@ export default function Queue() {
   const loadAll = useCallback(async () => {
     if (!user) return;
     const requestVersion = ++queueRequestVersion.current;
+    setNextTicketNumber('');
+    setNextTicketNumberError('');
+    api.get(`/queue/next-number?party_size=${partySize}`)
+      .then(({ data }) => {
+        if (requestVersion === queueRequestVersion.current) {
+          setNextTicketNumber(data.nextQueueNumber);
+        }
+      })
+      .catch(() => {
+        if (requestVersion === queueRequestVersion.current) {
+          setNextTicketNumberError('Could not check the next queue number. Please refresh the page.');
+        }
+      });
     try {
       const [queueRes, mineRes] = await Promise.all([
         api.get('/queue'),
@@ -101,7 +116,7 @@ export default function Queue() {
     } catch {
       /* silent */
     }
-  }, [user]);
+  }, [user, partySize]);
 
   // Setup WebSocket & Initial Load
   useEffect(() => {
@@ -171,9 +186,9 @@ export default function Queue() {
     setQueueActionError('');
     setJoinError('');
     setJoinMessage('');
+    const requestVersion = ++queueRequestVersion.current;
     try {
       await api.patch(`/queue/${myEntry.queue_id}/cancel`);
-      queueRequestVersion.current += 1;
       setPartySize(Number(myEntry.party_size));
       setMyEntry(null);
       setJoinMessage('You have left the queue. Choose a party size and select “Get queue number” to join again; no new ticket has been issued.');
@@ -188,6 +203,18 @@ export default function Queue() {
       setAllQueue(Array.isArray(response.data) ? response.data : []);
     } catch {
       setQueueActionError('You left the queue, but the public queue board could not be refreshed.');
+    }
+
+    try {
+      const nextResponse = await api.get(`/queue/next-number?party_size=${myEntry.party_size}`);
+      if (requestVersion === queueRequestVersion.current) {
+        setNextTicketNumber(nextResponse.data.nextQueueNumber);
+        setNextTicketNumberError('');
+      }
+    } catch {
+      if (requestVersion === queueRequestVersion.current) {
+        setNextTicketNumberError('Could not refresh the next queue number. Please refresh the page.');
+      }
     } finally {
       setIsLeaving(false);
     }
@@ -312,6 +339,17 @@ export default function Queue() {
               {getGroupLabel(partySize)}
             </span>
             Group {getGroupLabel(partySize)} · {getGroupRange(getGroupLabel(partySize))}
+          </p>
+
+          <p className="queue-next-number" role="status" aria-live="polite">
+            {nextTicketNumberError
+              ? nextTicketNumberError
+              : nextTicketNumber === null
+                ? 'No tickets remain in this group today.'
+                : `If you take a ticket now, your number will be ${nextTicketNumber || 'checking…'}.`}
+          </p>
+          <p className="queue-missed-guidance">
+            If your number is missed and the number being called is no more than 25 numbers after yours, go straight to a staff member. They can add you back with the highest priority.
           </p>
 
           {joinError && <p className="error-text">{joinError}</p>}

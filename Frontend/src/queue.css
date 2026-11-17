@@ -238,7 +238,7 @@
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  margin: 0 0 20px;
+  margin: 0 0 12px;
   padding: 5px 14px 5px 6px;
   border: 1px solid var(--line);
   border-radius: 999px;
@@ -246,6 +246,19 @@
   color: #514d45;
   font-size: 0.82rem;
   font-weight: 600;
+}
+
+.queue-next-number {
+  margin: 0 0 8px;
+  color: var(--ink);
+  font-size: 0.94rem;
+  font-weight: 700;
+}
+
+.queue-missed-guidance {
+  margin: 0 0 20px;
+  color: #6b6558;
+  font-size: 0.82rem;
 }
 
 .queue-primary-btn {

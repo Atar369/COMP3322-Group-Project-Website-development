@@ -5,6 +5,7 @@ const { verifyToken, requireRole } = require('../middleware/authMiddleware');
 
 // Public board (no PII: no user_id in response)
 router.get('/', queueController.listAll);
+router.get('/next-number', queueController.nextNumber);
 
 // Customer + manager
 router.get('/user/:user_id', verifyToken, queueController.listByUser);
