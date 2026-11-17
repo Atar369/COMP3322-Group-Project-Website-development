@@ -313,6 +313,16 @@ async function cancel(request, response) {
     }
 
     await connection.commit();
+
+    const io = request.app.get('io');
+    if (io) {
+      const {emitOrderUpdate} = require('../socket');
+      emitOrderUpdate(io, {
+        type: 'booking_cancelled',
+        bookingId: id}
+      );
+    }
+
     if (isCustomerCancellation && accountDisabled) {
       return response.json({
         message: 'Booking cancelled. You have received 4 cancellation flags, so your account has been disabled. This email cannot be used to register another account.',
@@ -561,6 +571,16 @@ async function arrive(request, response) {
       });
     }
 
+    const io = request.app.get('io');
+    if (io) {
+      const {emitOrderUpdate} = require('../socket');
+      emitOrderUpdate(io, {
+        type: 'status_changed',
+        bookingId: id,
+        userId: bookings[0].user_id}
+      );
+    }
+
     return response.json({message: "Booking marked as serving."});
   } catch (error) {
     console.error("database error:", error);
@@ -592,6 +612,10 @@ async function menu(request, response) {
 async function finishBooking(request, response) {
   const { id } = request.params;
   try {
+    const [bookings] = await db.query(
+      `SELECT user_id FROM bookings WHERE booking_id = ?`,
+      [id]
+    );
     const [result] = await db.query(
       `UPDATE bookings SET status = 'finished' WHERE booking_id = ? AND status = 'serving'`,
       [id]
@@ -599,6 +623,17 @@ async function finishBooking(request, response) {
     if (result.affectedRows === 0) {
       return response.status(404).json({error: "Booking not found or not in serving status."});
     }
+
+    const io = request.app.get('io');
+    if (io) {
+      const {emitOrderUpdate} = require('../socket');
+      emitOrderUpdate(io, {
+        type: 'payment_requested',
+        bookingId: id,
+        userId: bookings[0]?.user_id}
+      );
+    }
+
     return response.json({message: "Booking marked as finished. Manager notified for payment."});
   } catch (error) {
     console.error("database error:", error);
@@ -612,7 +647,7 @@ async function payBooking(request, response) {
   try {
     await connection.beginTransaction();
     const [bookings] = await connection.query(
-      `SELECT table_id, status FROM bookings WHERE booking_id = ? FOR UPDATE`,
+      `SELECT table_id, status, user_id FROM bookings WHERE booking_id = ? FOR UPDATE`,
       [id]
     );
     if (bookings.length === 0) {
@@ -650,6 +685,17 @@ async function payBooking(request, response) {
     }
     
     await connection.commit();
+
+    const io = request.app.get('io');
+    if (io) {
+      const {emitOrderUpdate} = require('../socket');
+      emitOrderUpdate(io, {
+        type: 'order_paid',
+        bookingId: id,
+        userId: booking.user_id}
+      );
+    }
+
     return response.json({message: "Booking marked as paid."});
   } catch (error) {
     await connection.rollback();
