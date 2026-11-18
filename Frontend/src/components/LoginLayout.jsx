@@ -3,16 +3,6 @@ import { Link } from 'react-router-dom';
 
 // Shared visual shell + validation for the customer and manager login pages.
 // Styles come from login.css (imported once in main.jsx).
-//
-// Props:
-//   title      heading text, e.g. "Customer login"
-//   subtitle   short line under the heading
-//   hint       optional small note under the button (e.g. demo accounts)
-//   onSubmit   async (email, password) => string | undefined
-//              Return an error message to show it, or nothing on success
-//              (do your navigate() inside it).
-//   children   footer links (Register, Forgot password, Back to choice)
-//   image      optional aside image URL, default login-customer.jpg
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -126,17 +116,18 @@ export default function LoginLayout({
                   className="cl-login01__eye"
                   type="button"
                   aria-label={showPw ? 'Hide password' : 'Show password'}
-                  aria-pressed={showPw}
-                  aria-controls="cl-login01-pw"
                   onClick={() => setShowPw((s) => !s)}
                 >
-                  <svg className="cl-login01__eye-on" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                    <path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12Z" />
-                    <circle cx="12" cy="12" r="3" />
-                  </svg>
-                  <svg className="cl-login01__eye-off" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                    <path d="M3 3l18 18M10.6 5.1A10.8 10.8 0 0 1 12 5c6.4 0 10 7 10 7a17.6 17.6 0 0 1-3.2 4.1M6.6 6.6C3.9 8.3 2 12 2 12s3.6 7 10 7a9.8 9.8 0 0 0 5.4-1.6M9.9 9.9a3 3 0 0 0 4.2 4.2" />
-                  </svg>
+                  {showPw ? (
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                      <path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12Z" />
+                      <circle cx="12" cy="12" r="3" />
+                    </svg>
+                  ) : (
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                      <path d="M3 3l18 18M10.6 5.1A10.8 10.8 0 0 1 12 5c6.4 0 10 7 10 7a17.6 17.6 0 0 1-3.2 4.1M6.6 6.6C3.9 8.3 2 12 2 12s3.6 7 10 7a9.8 9.8 0 0 0 5.4-1.6M9.9 9.9a3 3 0 0 0 4.2 4.2" />
+                    </svg>
+                  )}
                 </button>
               </div>
               <p className="cl-login01__error" id="cl-login01-pw-err">{errors.password}</p>
@@ -145,6 +136,17 @@ export default function LoginLayout({
             <button className="cl-login01__submit" type="submit" disabled={loading}>
               {loading ? 'Signing in…' : 'Log in'}
             </button>
+
+            <p style={{ 
+              fontSize: '0.75rem', 
+              color: '#6b7a72', 
+              textAlign: 'center', 
+              marginTop: '16px',
+              marginBottom: '8px',
+              lineHeight: '1.4'
+            }}>
+              For security reasons, 5 consecutive failed attempts will temporarily lock your account for 15 minutes.
+            </p>
 
             <div className="cl-login01__live" role="status" aria-live="polite">
               {formError && <p>{formError}</p>}

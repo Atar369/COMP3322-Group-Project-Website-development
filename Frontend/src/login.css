@@ -194,7 +194,10 @@
   box-shadow: 0 0 0 4px var(--cl-login01-ring);
 }
 
-.cl-login01__pw {
+/* Unified Password Fields & Eye Buttons */
+.cl-login01__pw,
+.register-password,
+.profile-password {
   position: relative;
 }
 
@@ -202,14 +205,10 @@
   padding-right: 52px;
 }
 
-.field .register-password__input {
+.field .register-password__input,
+.field .profile-password__input {
   width: 100%;
   padding-right: 52px;
-}
-
-.register-password .cl-login01__eye {
-  top: 50%;
-  transform: translateY(-50%);
 }
 
 .cl-login01__eye {
@@ -220,11 +219,25 @@
   place-items: center;
   width: 40px;
   height: 40px;
+  padding: 0;
   border: 0;
   border-radius: 9px;
   background: transparent;
   color: var(--cl-login01-muted);
   cursor: pointer;
+  transition: background-color .15s ease;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.register-password .cl-login01__eye,
+.profile-password .cl-login01__eye {
+  top: 50%;
+  transform: translateY(-50%);
+}
+
+.register-password .cl-login01__eye:active,
+.profile-password .cl-login01__eye:active {
+  transform: translateY(-50%);
 }
 
 .cl-login01__eye:hover {
@@ -237,13 +250,11 @@
   outline-offset: 0;
 }
 
-.cl-login01__eye-off,
-.cl-login01__eye[aria-pressed="true"] .cl-login01__eye-on {
-  display: none;
-}
-
-.cl-login01__eye[aria-pressed="true"] .cl-login01__eye-off {
+.cl-login01__eye svg {
+  width: 20px;
+  height: 20px;
   display: block;
+  pointer-events: none;
 }
 
 .cl-login01__link {
@@ -471,8 +482,8 @@
   position: absolute;
   inset: 0;
   z-index: -2;
-  width: 100% !important;
-  height: 100% !important;
+  width: 100%;
+  height: 100%;
   object-fit: cover;
 }
 
@@ -547,7 +558,7 @@
 
   .cl-login01__aside {
     order: -1;
-    height: 240px !important;
+    height: 240px;
     margin: 12px 12px 0;
     border-radius: 20px;
   }
@@ -576,7 +587,7 @@
   .cl-login01 *,
   .cl-login01 *::before,
   .cl-login01 *::after {
-    transition: none !important;
-    animation: none !important;
+    transition: none;
+    animation: none;
   }
 }

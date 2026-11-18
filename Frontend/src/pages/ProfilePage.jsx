@@ -2,6 +2,28 @@ import { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import api from '../services/api';
 
+function EyeButton({ isVisible, onClick }) {
+  return (
+    <button
+      className="cl-login01__eye"
+      type="button"
+      aria-label={isVisible ? 'Hide password' : 'Show password'}
+      onClick={onClick}
+    >
+      {isVisible ? (
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12Z" />
+          <circle cx="12" cy="12" r="3" />
+        </svg>
+      ) : (
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M3 3l18 18M10.6 5.1A10.8 10.8 0 0 1 12 5c6.4 0 10 7 10 7a17.6 17.6 0 0 1-3.2 4.1M6.6 6.6C3.9 8.3 2 12 2 12s3.6 7 10 7a9.8 9.8 0 0 0 5.4-1.6M9.9 9.9a3 3 0 0 0 4.2 4.2" />
+        </svg>
+      )}
+    </button>
+  );
+}
+
 export default function ProfilePage() {
   const { user, updateUser } = useAuth();
   const [isEditing, setIsEditing] = useState(false);
@@ -19,11 +41,14 @@ export default function ProfilePage() {
   const [pwSuccess, setPwSuccess] = useState('');
   const [showPwForm, setShowPwForm] = useState(false);
 
+  const [showCurrentPw, setShowCurrentPw] = useState(false);
+  const [showNewPw, setShowNewPw] = useState(false);
+  const [showConfirmPw, setShowConfirmPw] = useState(false);
+
   function handleChange(field, value) {
     setForm(prev => ({ ...prev, [field]: value }));
   }
 
-  // Saves name and phone to the server, then updates the logged-in user in memory.
   async function handleSave() {
     setProfileError('');
     setProfileSuccess('');
@@ -54,7 +79,6 @@ export default function ProfilePage() {
     }
   }
 
-  // Discards edits and restores the values stored on the server.
   function handleCancel() {
     setForm({
       name: user?.name || '',
@@ -86,6 +110,9 @@ export default function ProfilePage() {
       setPwSuccess('Password changed successfully.');
       setPwForm({ currentPassword: '', newPassword: '', confirmPassword: '' });
       setShowPwForm(false);
+      setShowCurrentPw(false);
+      setShowNewPw(false);
+      setShowConfirmPw(false);
     } catch (err) {
       setPwError(err.response?.data?.error || 'Failed to change password.');
     }
@@ -145,7 +172,6 @@ export default function ProfilePage() {
         </div>
       )}
 
-      {/* Change Password Section */}
       <div style={{ marginTop: 32, borderTop: '2px solid var(--line)', paddingTop: 24 }}>
         <h2>Change Password</h2>
         {pwSuccess && <p style={{ color: 'var(--green)', fontWeight: 600 }}>{pwSuccess}</p>}
@@ -155,30 +181,42 @@ export default function ProfilePage() {
           <form onSubmit={handlePasswordChange}>
             <div className="field">
               <label>Current Password</label>
-              <input
-                type="password"
-                value={pwForm.currentPassword}
-                onChange={e => setPwForm(f => ({ ...f, currentPassword: e.target.value }))}
-                required
-              />
+              <div className="profile-password">
+                <input
+                  className="profile-password__input"
+                  type={showCurrentPw ? "text" : "password"}
+                  value={pwForm.currentPassword}
+                  onChange={e => setPwForm(f => ({ ...f, currentPassword: e.target.value }))}
+                  required
+                />
+                <EyeButton isVisible={showCurrentPw} onClick={() => setShowCurrentPw(!showCurrentPw)} />
+              </div>
             </div>
             <div className="field">
               <label>New Password</label>
-              <input
-                type="password"
-                value={pwForm.newPassword}
-                onChange={e => setPwForm(f => ({ ...f, newPassword: e.target.value }))}
-                required
-              />
+              <div className="profile-password">
+                <input
+                  className="profile-password__input"
+                  type={showNewPw ? "text" : "password"}
+                  value={pwForm.newPassword}
+                  onChange={e => setPwForm(f => ({ ...f, newPassword: e.target.value }))}
+                  required
+                />
+                <EyeButton isVisible={showNewPw} onClick={() => setShowNewPw(!showNewPw)} />
+              </div>
             </div>
             <div className="field">
               <label>Confirm New Password</label>
-              <input
-                type="password"
-                value={pwForm.confirmPassword}
-                onChange={e => setPwForm(f => ({ ...f, confirmPassword: e.target.value }))}
-                required
-              />
+              <div className="profile-password">
+                <input
+                  className="profile-password__input"
+                  type={showConfirmPw ? "text" : "password"}
+                  value={pwForm.confirmPassword}
+                  onChange={e => setPwForm(f => ({ ...f, confirmPassword: e.target.value }))}
+                  required
+                />
+                <EyeButton isVisible={showConfirmPw} onClick={() => setShowConfirmPw(!showConfirmPw)} />
+              </div>
             </div>
             {pwError && <p className="error-text">{pwError}</p>}
             <button className="btn" type="submit">Update Password</button>

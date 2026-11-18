@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+﻿import { useState, useEffect, useCallback, useRef } from 'react';
 import { useAuth } from '../context/AuthContext';
 import api from '../services/api';
 import { socket } from '../socket';
@@ -37,7 +37,7 @@ const STEPS = [
 
 const STATUS_COPY = {
   queued: { title: 'You are in the queue', text: 'This page updates automatically when your number is called.' },
-  called: { title: '🔔 Called — please proceed to the counter', text: 'Your table is ready. Please see our host now.' },
+  called: { title: '🔔 Your table is ready!', text: 'Please proceed to the counter immediately to be seated. You do not need to click any button here.' },
   serving: { title: 'You are now seated', text: 'You may place your order.' },
   missed: { title: 'You missed your turn', text: 'Please go straight to a staff member. If the number being called in your group is no more than 25 numbers after yours, they can add you back with the highest priority.' },
 };
@@ -128,6 +128,7 @@ export default function Queue() {
       if (payload?.action === 'call' || payload?.action === 'auto-call') {
         const entry = myEntryRef.current;
         const calledNumber = String(payload.queueNumber || '');
+        
         if (
           entry?.status === 'queued'
           && calledNumber
@@ -136,19 +137,23 @@ export default function Queue() {
         ) {
           setCalledBanner({
             queueNumber: calledNumber,
-            message: `${calledNumber} is being called. Please wait for your number.`,
+            isMyCall: false,
+            message: `Queue update: Now calling ${calledNumber}. Please get ready!`,
           });
-          setTimeout(() => setCalledBanner(null), 15000);
+          setTimeout(() => setCalledBanner(null), 5000);
         }
       }
       loadAll();
     };
+
     const onCalled = payload => {
       if (!payload) return;
-      setCalledBanner(payload);
+      setCalledBanner({ 
+        ...payload, 
+        isMyCall: true,
+        message: 'Your table is ready. Please proceed to the counter immediately.' 
+      });
       refresh();
-
-      // Auto-hide the banner after 15 seconds
       setTimeout(() => setCalledBanner(null), 15000);
     };
 
@@ -242,10 +247,14 @@ export default function Queue() {
 
   return (
     <div className="page queue-page">
-      {/* REAL-TIME BANNER (Appears when the manager calls your number via WebSocket) */}
+      {/* REAL-TIME BANNER (Distinguishes between calling you vs calling others) */}
       {calledBanner && (
-        <div className="queue-toast" role="alert">
-          <span className="queue-toast-bell" aria-hidden="true">🔔</span>
+        <div 
+          className="queue-toast" 
+          role="alert" 
+          style={calledBanner.isMyCall ? { background: '#24463a', color: '#fff' } : { background: '#d9a441', color: '#211f1b' }}
+        >
+          <span className="queue-toast-bell" aria-hidden="true">{calledBanner.isMyCall ? '🔔' : 'ℹ️'}</span>
           <div>
             <strong>{calledBanner.queueNumber}</strong>
             <p>{calledBanner.message}</p>
@@ -378,7 +387,11 @@ export default function Queue() {
 
           <div className="queue-ticket-body">
             <h3 className="queue-ticket-title">{copy.title}</h3>
-            {copy.text && <p className="queue-ticket-text">{copy.text}</p>}
+            {copy.text && (
+               <p className="queue-ticket-text" style={myEntry.status === 'called' ? { color: 'var(--rust)', fontWeight: 'bold', marginTop: '8px' } : {}}>
+                 {copy.text}
+               </p>
+            )}
 
             {stepIndex >= 0 && (
               <ol className="queue-steps" aria-label="Queue progress">
@@ -414,6 +427,7 @@ export default function Queue() {
             </div>
           </div>
 
+          {/* Action Buttons */}
           {['queued', 'called'].includes(myEntry.status) && (
             <div className="queue-ticket-actions">
               {queueActionError && <p className="error-text" role="alert">{queueActionError}</p>}

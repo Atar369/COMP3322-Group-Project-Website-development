@@ -13,7 +13,7 @@ function setSocketIo(io) {
 
 const QUEUE_GROUPS = ['A', 'B', 'C'];
 const MAX_QUEUE_NUMBER = 999;
-const AUTO_CALL_MISSED_AFTER_MS = 10_000; // unseated call -> missed
+const AUTO_CALL_MISSED_AFTER_MS = 120_000;
 
 function getGroupPrefix(party_size) {
   if (party_size <= 2) return 'A';
@@ -59,9 +59,10 @@ function emit(req, payload) {
   }
 }
 
-// GET /api/queue — public board, no PII (no user_id)
+// GET /api/queue — public board, only show today's active queue entries
 async function listAll(req, res) {
   try {
+    const today = getRestaurantDateKey();
     const [rows] = await db.query(
       `SELECT q.queue_id, q.party_size, q.queue_number, q.queue_date, q.joined_at,
               q.status, q.table_id, seated_table.table_number,
@@ -70,8 +71,9 @@ async function listAll(req, res) {
        FROM queue_entries q
        LEFT JOIN restaurant_tables seated_table ON seated_table.table_id = q.table_id
        LEFT JOIN restaurant_tables reserved_table ON reserved_table.table_id = q.reserved_table_id
-       WHERE q.status <> 'cancelled'
-       ORDER BY q.queue_number ASC, q.joined_at ASC, q.queue_id ASC`
+       WHERE q.status <> 'cancelled' AND q.queue_date = ?
+       ORDER BY q.queue_number ASC, q.joined_at ASC, q.queue_id ASC`,
+      [today]
     );
     return res.json(rows);
   } catch (err) {
@@ -101,7 +103,7 @@ async function nextNumber(req, res) {
   }
 }
 
-// GET /api/queue/manager/history — manager-only, includes customer names
+// GET /api/queue/manager/history — manager-only, includes all historical entries and customer names
 async function managerHistory(req, res) {
   try {
     const [rows] = await db.query(
@@ -258,19 +260,21 @@ async function call(req, res) {
     return res.status(409).json({ error });
   }
   const { id } = req.params;
+  const today = getRestaurantDateKey();
   const conn = await db.getConnection();
 
   try {
     await conn.beginTransaction();
 
+    // Force restriction to only call today's queue entries
     const [entry] = await conn.query(
       `SELECT queue_id, user_id, party_size, queue_number
-       FROM queue_entries WHERE queue_id = ? AND status = 'queued' FOR UPDATE`,
-      [id]
+       FROM queue_entries WHERE queue_id = ? AND status = 'queued' AND queue_date = ? FOR UPDATE`,
+      [id, today]
     );
     if (entry.length === 0) {
       await conn.rollback();
-      return res.status(400).json({ error: 'Queue entry not found or not in queued state.' });
+      return res.status(400).json({ error: 'Queue entry not found or not in queued state today.' });
     }
 
     const target = entry[0];
@@ -280,7 +284,7 @@ async function call(req, res) {
       `SELECT queue_id FROM queue_entries
        WHERE queue_date = ? AND queue_number LIKE ? AND status = 'called'
        ORDER BY called_at ASC, queue_id ASC LIMIT 1 FOR UPDATE`,
-      [getRestaurantDateKey(), `${prefix}%`]
+      [today, `${prefix}%`]
     );
     if (calledRows.length > 0) {
       await conn.query(
@@ -332,13 +336,14 @@ async function checkin(req, res) {
     return res.status(409).json({ error });
   }
   const { id } = req.params;
+  const today = getRestaurantDateKey();
 
   try {
     const [result] = await db.query(
       `UPDATE queue_entries SET status = 'serving', served_at = UTC_TIMESTAMP()
-       WHERE queue_id = ? AND status = 'called'
+       WHERE queue_id = ? AND status = 'called' AND queue_date = ?
          AND HOUR(DATE_ADD(UTC_TIMESTAMP(), INTERVAL 8 HOUR)) < 21`,
-      [id]
+      [id, today]
     );
     if (!result.affectedRows) {
       if (isRestaurantEntryCutoffReached()) {
@@ -418,19 +423,21 @@ async function seat(req, res) {
     return res.status(409).json({ error });
   }
   const { id } = req.params;
+  const today = getRestaurantDateKey();
   const conn = await db.getConnection();
 
   try {
     await conn.beginTransaction();
 
+    // Force restriction to only seat today's queue entries
     const [entries] = await conn.query(
       `SELECT queue_id, party_size, table_id, reserved_table_id
-       FROM queue_entries WHERE queue_id = ? AND status = 'called' FOR UPDATE`,
-      [id]
+       FROM queue_entries WHERE queue_id = ? AND status = 'called' AND queue_date = ? FOR UPDATE`,
+      [id, today]
     );
     if (!entries.length) {
       await conn.rollback();
-      return res.status(409).json({ error: 'There is no current called ticket to seat.' });
+      return res.status(409).json({ error: 'There is no current called ticket to seat today.' });
     }
 
     const entry = entries[0];
@@ -572,8 +579,11 @@ async function processAutoCallGroup(group) {
   }
 }
 
+// Core fix: Clean up past queue entries when the background task runs daily
 async function autoCallCycle() {
   if (isBeforeRestaurantOpening()) return;
+  const today = getRestaurantDateKey();
+  
   if (isRestaurantEntryCutoffReached()) {
     const conn = await db.getConnection();
     try {
@@ -581,7 +591,7 @@ async function autoCallCycle() {
       await conn.query(
         `UPDATE queue_entries SET status = 'missed', reserved_table_id = NULL
          WHERE queue_date = ? AND status = 'called'`,
-        [getRestaurantDateKey()]
+        [today]
       );
       await conn.query(`UPDATE queue_auto_call_settings SET enabled = FALSE WHERE enabled = TRUE`);
       await conn.commit();
@@ -593,6 +603,19 @@ async function autoCallCycle() {
       conn.release();
     }
   }
+
+  // On startup, mark past uncompleted entries as missed to prevent ghost queues
+  try {
+    await db.query(
+      `UPDATE queue_entries 
+       SET status = 'missed', reserved_table_id = NULL
+       WHERE queue_date < ? AND status IN ('queued', 'called')`,
+      [today]
+    );
+  } catch (error) {
+    console.error('Failed to clean up past queue entries:', error);
+  }
+
   await Promise.all(QUEUE_GROUPS.map(processAutoCallGroup));
 }
 
