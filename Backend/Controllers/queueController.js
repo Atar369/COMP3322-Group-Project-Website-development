@@ -30,6 +30,14 @@ function isValidPartySize(value) {
   return Number.isInteger(n) && n >= 1 && n <= 12;
 }
 
+function getNextQueueNumber(prefix, lastRows) {
+  const lastNum = lastRows.length > 0
+    ? parseInt(lastRows[0].queue_number.slice(1), 10)
+    : 0;
+  if (lastNum >= MAX_QUEUE_NUMBER) return null;
+  return `${prefix}${String(lastNum + 1).padStart(3, '0')}`;
+}
+
 // Emit helper: never let a socket failure break a DB transaction
 function emit(req, payload) {
   try {
@@ -74,7 +82,28 @@ async function listAll(req, res) {
   }
 }
 
-// GET /api/queue/manager/history — manager-only, includes all historical entries
+// GET /api/queue/next-number?party_size=2 — preview the next ticket in a group
+async function nextNumber(req, res) {
+  if (!isValidPartySize(req.query.party_size)) {
+    return res.status(400).json({ error: 'Party size must be a whole number between 1 and 12.' });
+  }
+
+  const prefix = getGroupPrefix(Number(req.query.party_size));
+  try {
+    const [lastRows] = await db.query(
+      `SELECT queue_number FROM queue_entries
+       WHERE queue_date = ? AND queue_number LIKE ?
+       ORDER BY queue_number DESC LIMIT 1`,
+      [getRestaurantDateKey(), `${prefix}%`]
+    );
+    return res.json({ nextQueueNumber: getNextQueueNumber(prefix, lastRows) });
+  } catch (err) {
+    console.error('next queue number error:', err);
+    return res.status(500).json({ error: 'Please try again later.' });
+  }
+}
+
+// GET /api/queue/manager/history — manager-only, includes all historical entries and customer names
 async function managerHistory(req, res) {
   try {
     const [rows] = await db.query(
@@ -167,18 +196,13 @@ async function join(req, res) {
       [today, `${prefix}%`]
     );
 
-    let nextNum = 1;
-    if (lastRows.length > 0) {
-      const lastNum = parseInt(lastRows[0].queue_number.slice(1), 10);
-      if (lastNum >= MAX_QUEUE_NUMBER) {
-        await conn.rollback();
-        return res.status(409).json({
-          error: 'This queue group has reached its daily ticket limit (999). Please see the manager.',
-        });
-      }
-      nextNum = lastNum + 1;
+    const queue_number = getNextQueueNumber(prefix, lastRows);
+    if (!queue_number) {
+      await conn.rollback();
+      return res.status(409).json({
+        error: 'This queue group has reached its daily ticket limit (999). Please see the manager.',
+      });
     }
-    const queue_number = `${prefix}${String(nextNum).padStart(3, '0')}`;
 
     const [result] = await conn.query(
       `INSERT INTO queue_entries (user_id, party_size, queue_number, queue_date, status, rejoin_count)
@@ -697,6 +721,7 @@ async function cancel(req, res) {
 module.exports = {
   setSocketIo,
   listAll,
+  nextNumber,
   managerHistory,
   join,
   listByUser,
