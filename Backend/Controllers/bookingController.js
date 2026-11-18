@@ -611,11 +611,25 @@ async function menu(request, response) {
 
 async function finishBooking(request, response) {
   const { id } = request.params;
+  const userId = request.user.user_id;
+  const userRole = request.user.role;
+
   try {
     const [bookings] = await db.query(
       `SELECT user_id FROM bookings WHERE booking_id = ?`,
       [id]
     );
+
+    if (bookings.length === 0) {
+      return response.status(404).json({error: "Booking not found."});
+    }
+
+    const booking = bookings[0];
+
+    if (userRole === 'customer' && Number(booking.user_id) !== Number(userId)) {
+      return response.status(403).json({error: "You are not authorized to finish this booking."});
+    }
+    
     const [result] = await db.query(
       `UPDATE bookings SET status = 'finished' WHERE booking_id = ? AND status = 'serving'`,
       [id]

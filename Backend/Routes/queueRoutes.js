@@ -11,6 +11,7 @@ router.get('/next-number', queueController.nextNumber);
 router.get('/user/:user_id', verifyToken, queueController.listByUser);
 router.post('/', verifyToken, requireRole('customer'), queueController.join);
 router.patch('/:id/cancel', verifyToken, queueController.cancel);
+router.patch('/:id/finish', verifyToken, queueController.finish);
 
 // Manager only
 router.get('/manager/history', verifyToken, requireRole('manager'), queueController.managerHistory);
@@ -20,7 +21,6 @@ router.patch('/auto-call/:group', verifyToken, requireRole('manager'), queueCont
 router.patch('/:id/call', verifyToken, requireRole('manager'), queueController.call);
 router.patch('/:id/checkin', verifyToken, requireRole('manager'), queueController.checkin);
 router.patch('/:id/seat', verifyToken, requireRole('manager'), queueController.seat);
-router.patch('/:id/finish', verifyToken, requireRole('manager'), queueController.finish);
 router.patch('/:id/pay', verifyToken, requireRole('manager'), queueController.pay);
 
 module.exports = router;

@@ -13,7 +13,7 @@ router.get("/user/:user_id", protect, requireRole("customer"), bookingController
 router.get("/all", protect, managerOnly, bookingController.listAll);
 router.patch("/:id/cancel", protect, bookingController.cancel);
 router.patch("/:id/arrive", protect, managerOnly, bookingController.arrive);
-router.patch("/:id/finish", protect, managerOnly, bookingController.finishBooking);
+router.patch("/:id/finish", protect, bookingController.finishBooking);
 router.patch("/:id/pay", protect, managerOnly, bookingController.payBooking);
 router.patch("/:id", protect, bookingController.edit);
 
