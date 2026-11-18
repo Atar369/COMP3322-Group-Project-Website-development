@@ -2,6 +2,28 @@ import { useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import api from '../services/api';
 
+function EyeButton({ isVisible, onClick }) {
+  return (
+    <button
+      className="cl-login01__eye"
+      type="button"
+      aria-label={isVisible ? 'Hide password' : 'Show password'}
+      onClick={onClick}
+    >
+      {isVisible ? (
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12Z" />
+          <circle cx="12" cy="12" r="3" />
+        </svg>
+      ) : (
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M3 3l18 18M10.6 5.1A10.8 10.8 0 0 1 12 5c6.4 0 10 7 10 7a17.6 17.6 0 0 1-3.2 4.1M6.6 6.6C3.9 8.3 2 12 2 12s3.6 7 10 7a9.8 9.8 0 0 0 5.4-1.6M9.9 9.9a3 3 0 0 0 4.2 4.2" />
+        </svg>
+      )}
+    </button>
+  );
+}
+
 export default function ForgotPassword() {
   const [searchParams] = useSearchParams();
   const tokenParam = searchParams.get('token');
@@ -11,6 +33,11 @@ export default function ForgotPassword() {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+  
+  const [loading, setLoading] = useState(false);
+
+  const [showNewPw, setShowNewPw] = useState(false);
+  const [showConfirmPw, setShowConfirmPw] = useState(false);
 
   async function handleStep1Submit(e) {
     e.preventDefault();
@@ -20,12 +47,16 @@ export default function ForgotPassword() {
       setError('Email is required.');
       return;
     }
+
+    setLoading(true);
     try {
       await api.post('/auth/forgot-password', { email: email.trim() });
       setSuccess('If an account exists with that email, a reset link has been sent. Check your email inbox for further instructions.');
       setEmail('');
     } catch (err) {
       setError(err.response?.data?.error || 'Failed to process request. Please try again.');
+    } finally {
+      setLoading(false);
     }
   }
 
@@ -38,8 +69,8 @@ export default function ForgotPassword() {
       setError('Both password fields are required.');
       return;
     }
-    if (newPassword.length < 6) {
-      setError('Password must be at least 6 characters.');
+    if (newPassword.length < 8) {
+      setError('Password must be at least 8 characters.');
       return;
     }
     if (newPassword !== confirmPassword) {
@@ -47,6 +78,7 @@ export default function ForgotPassword() {
       return;
     }
 
+    setLoading(true);
     try {
       await api.post('/auth/reset-password', {
         token: tokenParam,
@@ -55,6 +87,8 @@ export default function ForgotPassword() {
       setStep(3);
     } catch (err) {
       setError(err.response?.data?.error || 'Failed to reset password. Token may have expired.');
+    } finally {
+      setLoading(false);
     }
   }
 
@@ -73,12 +107,16 @@ export default function ForgotPassword() {
               value={email}
               onChange={e => setEmail(e.target.value)}
               placeholder="Enter your registered email"
+              disabled={loading}
               required
             />
           </div>
           {error && <p className="error-text">{error}</p>}
-          {success && <p style={{ color: 'green', fontSize: '0.9rem' }}>{success}</p>}
-          <button className="btn" type="submit">Send Reset Link</button>
+          {success && <p style={{ color: 'green', fontSize: '0.9rem', fontWeight: 600 }}>{success}</p>}
+          
+          <button className="btn" type="submit" disabled={loading}>
+            {loading ? 'Sending…' : 'Send Reset Link'}
+          </button>
         </form>
         <p style={{ marginTop: 16 }}>
           <Link to="/welcome">← Back to Login</Link>
@@ -95,28 +133,47 @@ export default function ForgotPassword() {
           Enter your new password below.
         </p>
         <form onSubmit={handleStep2Submit}>
+          
           <div className="field">
             <label>New Password</label>
-            <input
-              type="password"
-              value={newPassword}
-              onChange={e => setNewPassword(e.target.value)}
-              placeholder="At least 6 characters"
-              required
-            />
+            <div className="profile-password">
+              <input
+                className="profile-password__input"
+                type={showNewPw ? 'text' : 'password'}
+                value={newPassword}
+                onChange={e => setNewPassword(e.target.value)}
+                placeholder="At least 8 characters"
+                disabled={loading}
+                required
+              />
+              <EyeButton isVisible={showNewPw} onClick={() => setShowNewPw(!showNewPw)} />
+            </div>
+            <small style={{ color: '#6b6558', marginTop: 4 }}>
+              * Manager accounts require at least 12 characters.
+            </small>
           </div>
+
           <div className="field">
             <label>Confirm Password</label>
-            <input
-              type="password"
-              value={confirmPassword}
-              onChange={e => setConfirmPassword(e.target.value)}
-              placeholder="Re-enter your new password"
-              required
-            />
+            <div className="profile-password">
+              <input
+                className="profile-password__input"
+                type={showConfirmPw ? 'text' : 'password'}
+                value={confirmPassword}
+                onChange={e => setConfirmPassword(e.target.value)}
+                placeholder="Re-enter your new password"
+                disabled={loading}
+                required
+              />
+              <EyeButton isVisible={showConfirmPw} onClick={() => setShowConfirmPw(!showConfirmPw)} />
+            </div>
           </div>
-          {error && <p className="error-text">{error}</p>}
-          <button className="btn" type="submit">Reset Password</button>
+
+          {error && <p className="error-text" style={{ fontWeight: 600 }}>{error}</p>}
+          
+          <button className="btn" type="submit" disabled={loading}>
+            {loading ? 'Resetting…' : 'Reset Password'}
+          </button>
         </form>
         <p style={{ marginTop: 16 }}>
           <Link to="/welcome">← Back to Login</Link>

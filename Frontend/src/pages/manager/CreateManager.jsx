@@ -32,8 +32,8 @@ export default function CreateManager() {
       return;
     }
 
-    if (form.password.length < 6) {
-      setError('Password must be at least 6 characters.');
+    if (form.password.length < 12) {
+      setError('Password must be at least 12 characters.');
       setLoading(false);
       return;
     }
@@ -110,7 +110,7 @@ export default function CreateManager() {
             type="password"
             value={form.password}
             onChange={e => setForm(f => ({ ...f, password: e.target.value }))}
-            placeholder="At least 6 characters"
+            placeholder="At least 12 characters"
             required
           />
         </div>

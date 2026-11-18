@@ -53,7 +53,7 @@ function getEmailDeliveryErrorMessage(error) {
   if (error.code === 'EAUTH' || Number(error.responseCode) === 535) {
     return 'Gmail rejected the SMTP sign-in. Check that SMTP_USER is the full Gmail address and SMTP_PASS is a current Google App Password (not your regular Gmail password).';
   }
-  return 'The verification email could not be sent. Please check the mail server settings and try again.';
+  return 'the verification email could not be sent. Please check the mail server settings and try again.';
 }
 
 // POST /api/auth/register
