@@ -38,7 +38,7 @@ Since the school's external firewall restricts traffic exclusively to standard p
 
 | Service | Container Internal Port | Host External Port | Accessibility / Purpose |
 | :--- | :--- | :--- | :--- |
-| **Frontend (Vite)** | `3000` | `80` | **Public Web Traffic** (Accessible via HKUVPN) |
+| **Frontend (Vite)** | `80` | `80` | **Public Web Traffic** (Accessible via HKUVPN) |
 | **Backend (Express)** | `5000` | `5001` | **Internal Proxy/API** (Proxied via Vite `/api`) |
 | **Database (MySQL)** | `3306` | *None* | **Isolated Internal Network Only** (Secure, No Port Published) |
 
@@ -134,7 +134,7 @@ npm install
 npm run dev
 ```
 
-The Vite dev server runs at <http://localhost:3000> and proxies `/api` and `/socket.io` to the backend at `http://localhost:5000`.
+The Vite dev server runs at <http://localhost:80> and proxies `/api` and `/socket.io` to the backend at `http://localhost:5000`.
 
 ## Create the first manager
 
