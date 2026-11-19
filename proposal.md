@@ -159,7 +159,8 @@ A browser-based web application is optimal for this deployment because both cust
   - `waiting` → **Call** → `calling` (group is notified)
   - `calling` → **Seated** → `seated` (group is assigned a table)
  
-  <img width="1897" height="993" alt="image" src="https://github.com/user-attachments/assets/30ba7806-e651-4c9f-9658-b92a3895ac3f" />
+  <img width="1440" height="900" alt="Screenshot 2026-11-19 at 11 42 10 PM" src="https://github.com/user-attachments/assets/54095cae-9d22-4357-a80b-04f20095b113" />
+
 
   **Order Management** — Managers advance kitchen order stages and confirm payment:
   - `pending` → `preparing` → `ready` → `arrived` (via **Advance Status**)
