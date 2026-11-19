@@ -124,7 +124,8 @@ A browser-based web application is optimal for this deployment because both cust
   <img width="1200" alt="Customer order history" src="https://github.com/user-attachments/assets/ae8fc582-7c0f-4667-89ca-7e29cdc586d8" />
 
   Queue history page:  
-  <img width="1897" height="999" alt="image" src="https://github.com/user-attachments/assets/6838054e-8f0d-44ff-af35-d95c87bfc59f" />
+  <img width="1440" height="900" alt="Screenshot 2026-11-19 at 4 50 07 PM" src="https://github.com/user-attachments/assets/e7ee5b9b-915f-4329-b2ef-3c49e425296a" />
+
 
   Booking management page:
 
