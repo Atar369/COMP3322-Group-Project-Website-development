@@ -15,36 +15,39 @@
 The project title is formally designated as The Kitchen Ledger.
 
 ### 3. Project Description
-The Kitchen Ledger is a full-stack web application for a modern Western-style restaurant named Ember & Oak. It provides an integrated digital solution for restaurant operations and customer dining services. Customers can register and log in, browse the menu, make table reservations, join and monitor a walk-in queue, place dine-in orders, review their order status, and record dish ratings and reviews. Restaurant managers can manage menu availability, process and track orders, control queue call status, maintain table bookings, and review operational and sales data through an interactive dashboard.
+The Kitchen Ledger is a full-stack web application for Ember & Oak, a Western fine-dining restaurant. It brings customer dining services and restaurant operations together in one platform. Customers can create and verify an account, browse and filter the menu, book a table with optional pre-order courses, join and monitor a walk-in queue, place dine-in orders, and review their booking and order histories. Customers can also manage their personal information, change their password, and rate menu items. Restaurant managers can oversee menu items, bookings, queue activity, orders and table bills, and review service and sales metrics through a date-filterable dashboard.
 
 The system is built with React and Vite on the frontend, Node.js and Express on the backend, MySQL for persistent data storage, and Socket.io for real-time queue updates. Docker Compose is used to deploy and connect the frontend, backend, and database services on the assigned project server. JWT authentication and role-based route protection separate customer functions from manager functions.
 The primary target end-user groups are:
-- **Customers:** Diners who want a convenient way to reserve a table or join a walk-in queue remotely, browse an available menu, place orders, and track their dining activity.
-- **Restaurant Managers:** Staff who need a central real-time system for coordinating table occupancy, queue movements, order preparation, menu availability, and customer service.
-The Kitchen Ledger replaces fragmented telephone reservations, physical queue lists, and manual order tracking with one responsive and connected platform. It also provides managers with data-driven summaries of revenue, menu sales, hourly activity, and customer dining preferences to support more informed operational decisions.
+- **Customers:** Diners who want to book ahead or join the walk-in queue, browse the menu, pre-order courses, order while seated, and keep track of their dining activity.
+- **Restaurant Managers:** Staff who need a central system for coordinating bookings, queue movements, menu items, active orders, table bills, and service performance.
+The Kitchen Ledger replaces fragmented telephone reservations, physical queue lists, and manual order tracking with one connected platform. It also gives managers summaries of paid revenue, order volume, popular dishes, and service performance over a selected date range.
 
 ### 4. Feature List
 
-**Core Requirements (Must-have Features)**
-- User Authentication: Secure registration and login functionality tailored for customers, and restaurant managers.
-- Table Booking System: An interactive floor-plan table reservation module featuring party-size validation and server-side timeslot conflict checking.
-- Walk-in Queue Management: A live walk-in queue system categorized by party size (Groups A, B, and C) featuring real-time 'Now Serving' status updates.
-- Digital Ordering System: Comprehensive menu browsing and order placement functionalities linked directly to customer booking or queue identifiers.
-- Order Tracking: Real-time order status tracking accessible to dining customers.
-- Manager Operations Portal: Dedicated interface for restaurant managers to monitor and update table bookings, active queues, and incoming orders.
-- Manager Analytics Dashboard: An administrative analytical interface equipped with comprehensive data visualizations:
-  - Menu Item Sales Bar Chart: Comparative sales volume analysis across menu items.
-  - Daily Revenue Trend Chart: Line charts tracking daily financial performance.
-  - Peak Hours Visualization: Analytical distribution of hourly customer traffic.
-- Responsive Design: A fully responsive user interface structured to provide an optimal viewing experience across mobile, tablet, and desktop devices.
-- Data Validation: Robust client-side and server-side input validation mechanisms to maintain data integrity and security.
+**Customer Features**
+- Account registration, email verification, login, password recovery, and account security measures.
+- Menu browsing with food-type and price filters, sale labels, ratings, and reviews.
+- Table booking by date, time, and party size, with optional special requests and pre-order courses. Tables are assigned automatically.
+- Walk-in queue tickets for party sizes of 1–12, grouped into A (1–2), B (3–6), and C (7+) with live queue updates and daily ticket numbers. If a number is missed and the number being called is within 25 tickets, staff can return the customer to the queue with priority.
+- Dine-in ordering and order history, plus booking management and booking history.
+- Personal information and password management, including visibility of accumulated booking-cancellation flags.
 
-**Optional Enhancements (Nice-to-have Features)**
-1. Takeaway and Pre-order Capabilities: Functionality enabling customers to place advance orders or arrange takeaway meals.
-2. Dynamic Menu Item Visibility Management: Functionality enabling restaurant managers to dynamically remove specific menu items from the customer menu view when items are unavailable.
-3. Meal Rating and Review System: Post-dining customer feedback and review module to measure service and food quality.
-4. Customer Preference Analysis: Insights into diner choices and order patterns.
-5. Ordering history: Enable customers to review historical order records.
+**Manager Features**
+- Dashboard date-range controls and service metrics, including paid revenue, paid orders, top-selling dishes, revenue trends, and best-selling dishes.
+- Menu, booking, and queue management.
+- Active order and table-bill management, including order totals and payment collection tracking.
+- Manager account registration and manager-only access to operational features.
+
+**Restaurant Rules and Validation**
+- Restaurant hours are 10:00 AM–10:00 PM. Walk-in queue tickets are issued from 10:00 AM–9:00 PM.
+- Bookings use one-hour dining slots, and a table is auto-assigned. Customers may cancel up to 11:59 PM Hong Kong time on the day before a booking; each cancellation adds a permanent flag, and four flags disable the account.
+- Seated customers may order within 45 minutes of seating, but no later than 9:45 PM. Customers can request payment when ready; managers record payment after collection.
+- Customer and manager forms validate input. Five consecutive failed login attempts temporarily lock an account for 15 minutes.
+
+**Potential Future Enhancements**
+- Takeaway ordering.
+- Expanded analysis of customer preferences and order patterns.
 
 ### 5. Full Technology Stack
 
@@ -93,11 +96,11 @@ A browser-based web application is optimal for this deployment because both cust
   Customer register page:  
   <img width="1897" height="990" alt="image" src="https://github.com/user-attachments/assets/804b1b7f-a553-40db-a6b3-2609c0923c7e" />
 
-- **Step 2: Reserve Table** — The customer selects the party size, views an interactive floor plan, chooses an available table and timeslot, and confirms the reservation.
+- **Step 2: Reserve Table** — The customer chooses a date, time, and party size, optionally adds a special request and pre-order courses, and confirms the booking. The system assigns a table automatically.
 
   <img width="1897" height="993" alt="image" src="https://github.com/user-attachments/assets/186f8aca-995b-4169-b9b3-9c353c7379f7" />
 
-- **Step 3: Join Queue** — The customer enters the party size, receives a categorized queue reference number (Series A, B, or C), and monitors the live queue progression. The system also calculates the customer’s current queue position so they can see how many groups are ahead of them.
+- **Step 3: Join Queue** — The customer chooses a party size from 1–12 and receives a daily ticket in the corresponding group: A (1–2 people), B (3–6), or C (7+). The queue page displays the current calls and the customer’s ticket status, and updates as the queue progresses.
 
   Queue page before joining the queue:  
   <img width="1897" height="993" alt="image" src="https://github.com/user-attachments/assets/7fedca18-904b-43e9-adb9-f603a8694c64" />
@@ -105,7 +108,7 @@ A browser-based web application is optimal for this deployment because both cust
   Queue page after joining the queue:  
   <img width="1897" height="999" alt="image" src="https://github.com/user-attachments/assets/aded7423-e0c5-4cc3-9597-0b00c7620000" />
 
-- **Step 4: Place Order** — The customer enters their Booking ID or Queue ID, browses categorized menu selections (starters, mains, and desserts), adds items to the cart, and submits the order.
+- **Step 4: Browse the Menu and Order** — Customers can filter menu items by food type and price, view item descriptions and ratings, and add dishes to their cart. Seated customers can place dine-in orders within the restaurant’s ordering period.
 
   Order page:  
   <img width="1897" height="1401" alt="image" src="https://github.com/user-attachments/assets/426aea07-0b78-48a8-a42a-8db8392b5afe" />
@@ -113,7 +116,7 @@ A browser-based web application is optimal for this deployment because both cust
   Cart page:  
   <img width="1897" height="990" alt="image" src="https://github.com/user-attachments/assets/ca031fa8-695a-43e4-b46c-35cca5a86bd8" />
 
-- **Step 5: Track Status** — The customer reviews live order progress, order history, queue history, booking history, and personal profile settings.
+- **Step 5: Manage Dining Activity** — Customers can review order and booking histories, manage upcoming bookings and their pre-order courses, monitor queue progress, and update personal information or their password.
 
   Review order progress page:  
   <img width="1897" height="990" alt="image" src="https://github.com/user-attachments/assets/7a1209f2-b7d4-4392-bdcf-68d73370e8c6" />
@@ -132,11 +135,11 @@ A browser-based web application is optimal for this deployment because both cust
 
 **Manager Workflow Journey**
 
-- **Step 1: System Authentication** — Managers log into the system using authenticated administrative credentials.
+- **Step 1: System Authentication** — Managers log in through the staff entry point. An existing manager can register another manager account.
 
   <img width="1897" height="984" alt="image" src="https://github.com/user-attachments/assets/4433fbe9-3805-4514-89a6-e70a750f73be" />
 
-- **Step 2: Operations Management** — Managers view and manage active queue movements, table booking schedules, and live food orders by updating their lifecycle statuses.
+- **Step 2: Operations Management** — Managers use the operations portal to oversee queue movements, bookings, menu items, active food orders, and table bills.
 
   **Queue Management** — Managers call waiting groups and mark them as seated:
   - `waiting` → **Call** → `calling` (group is notified)
@@ -150,11 +153,11 @@ A browser-based web application is optimal for this deployment because both cust
  
   <img width="1897" height="999" alt="image" src="https://github.com/user-attachments/assets/22e667f7-4c6b-4dbd-8ba6-51504df3f6c6" />
 
-  **Booking Management** — Managers view all confirmed and historical bookings, filterable by status (`confirmed`, `cancelled`, `completed`, `no_show`) and searchable by booking ID, date, or time.
+  **Booking Management** — Managers oversee the restaurant’s booking schedule and booking records.
 
   <img width="1897" height="1056" alt="image" src="https://github.com/user-attachments/assets/2cf1b689-5523-4564-9521-d3332c11f003" />
 
-- **Step 3: Executive Analytics** — Managers filter operational metrics by date ranges to review sales distribution, peak service hours, and customer dining preferences.
+- **Step 3: Service Analytics** — Managers select a date range and review paid revenue, paid-order counts, top-selling dishes, revenue trends, and dish sales.
 
   <img width="1897" height="993" alt="image" src="https://github.com/user-attachments/assets/1a58fee0-0ace-4c2c-9a4c-a70c4cbf64a8" />
   
