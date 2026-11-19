@@ -88,33 +88,35 @@ A browser-based web application is optimal for this deployment because both cust
 - **Step 1: Access Platform** — The customer accesses the system landing page and chooses to log in or register a new account.
 
   System landing page:  
-  <img width="1897" height="987" alt="image" src="https://github.com/user-attachments/assets/0b3cd045-3a99-4861-99e9-ca1846f063fc" />
+  <img width="1200" alt="Ember & Oak landing page" src="https://github.com/user-attachments/assets/b501d941-c6f8-48c4-8611-cd9e23219678" />
 
   Customer login page:  
-  <img width="1897" height="993" alt="image" src="https://github.com/user-attachments/assets/cbd846ae-15a1-4924-963c-7d051cc09ee9" />
+  <img width="1200" alt="Customer login page" src="https://github.com/user-attachments/assets/6441b481-7a87-4e54-a934-059a53181abe" />
 
   Customer register page:  
-  <img width="1897" height="990" alt="image" src="https://github.com/user-attachments/assets/804b1b7f-a553-40db-a6b3-2609c0923c7e" />
+  <img width="1200" alt="Customer registration page" src="https://github.com/user-attachments/assets/19bf743a-f7e7-445c-9274-a572702719c3" />
 
 - **Step 2: Reserve Table** — The customer chooses a date, time, and party size, optionally adds a special request and pre-order courses, and confirms the booking. The system assigns a table automatically.
 
-  <img width="1897" height="993" alt="image" src="https://github.com/user-attachments/assets/186f8aca-995b-4169-b9b3-9c353c7379f7" />
+  <img width="1200" alt="Book a table form" src="https://github.com/user-attachments/assets/861c17bc-e645-49a1-b64b-a63538a290b8" />
 
 - **Step 3: Join Queue** — The customer chooses a party size from 1–12 and receives a daily ticket in the corresponding group: A (1–2 people), B (3–6), or C (7+). The queue page displays the current calls and the customer’s ticket status, and updates as the queue progresses.
 
   Queue page before joining the queue:  
-  <img width="1897" height="993" alt="image" src="https://github.com/user-attachments/assets/7fedca18-904b-43e9-adb9-f603a8694c64" />
+  <img width="1200" alt="Join the waiting list" src="https://github.com/user-attachments/assets/44fdf6cf-973e-4985-84c3-7cafcada87a3" />
 
   Queue page after joining the queue:  
-  <img width="1897" height="999" alt="image" src="https://github.com/user-attachments/assets/aded7423-e0c5-4cc3-9597-0b00c7620000" />
+  <img width="1200" alt="Queue ticket and live status" src="https://github.com/user-attachments/assets/382e7f6d-abaf-4de5-97a8-abf5abc23a8e" />
 
 - **Step 4: Browse the Menu and Order** — Customers can filter menu items by food type and price, view item descriptions and ratings, and add dishes to their cart. Seated customers can place dine-in orders within the restaurant’s ordering period.
 
-  Order page:  
-  <img width="1897" height="1401" alt="image" src="https://github.com/user-attachments/assets/426aea07-0b78-48a8-a42a-8db8392b5afe" />
+  Customer menu:
 
-  Cart page:  
-  <img width="1897" height="990" alt="image" src="https://github.com/user-attachments/assets/ca031fa8-695a-43e4-b46c-35cca5a86bd8" />
+  <img width="1200" alt="Customer menu with filters and dish ratings" src="https://github.com/user-attachments/assets/dcfc46cb-bead-447f-b928-9a619f852091" />
+
+  Customer orders and cart:
+
+  <img width="1200" alt="Customer orders and table bills" src="https://github.com/user-attachments/assets/0b766f7d-c6ff-43ef-80c0-3d49d58c0b4a" />
 
 - **Step 5: Manage Dining Activity** — Customers can review order and booking histories, manage upcoming bookings and their pre-order courses, monitor queue progress, and update personal information or their password.
 
@@ -122,22 +124,36 @@ A browser-based web application is optimal for this deployment because both cust
   <img width="1897" height="990" alt="image" src="https://github.com/user-attachments/assets/7a1209f2-b7d4-4392-bdcf-68d73370e8c6" />
 
   Order history page:  
-  <img width="1897" height="993" alt="image" src="https://github.com/user-attachments/assets/b3842c02-20ea-464b-aa83-5a5215daa6f9" />
+  <img width="1200" alt="Customer order history" src="https://github.com/user-attachments/assets/ae8fc582-7c0f-4667-89ca-7e29cdc586d8" />
 
   Queue history page:  
   <img width="1897" height="999" alt="image" src="https://github.com/user-attachments/assets/6838054e-8f0d-44ff-af35-d95c87bfc59f" />
 
+  Booking management page:
+
+  <img width="1200" alt="Upcoming booking management" src="https://github.com/user-attachments/assets/9e65d36a-30fd-46be-8b22-c12aefd8f39e" />
+
   Booking history page:  
-  <img width="1897" height="990" alt="image" src="https://github.com/user-attachments/assets/a9159e17-3d75-4b6d-8c74-1c73de0f6945" />
+  <img width="1200" alt="Customer booking history" src="https://github.com/user-attachments/assets/694d2874-6553-4404-99b0-908266733b59" />
 
   Personal information page:  
-  <img width="1897" height="993" alt="image" src="https://github.com/user-attachments/assets/406dcee4-d473-44e8-9e73-9afd10a539c7" />
+  <img width="1200" alt="Customer personal information and cancellation flags" src="https://github.com/user-attachments/assets/8ec317a3-c3fa-40be-8f14-1d69cc729817" />
 
 **Manager Workflow Journey**
 
 - **Step 1: System Authentication** — Managers log in through the staff entry point. An existing manager can register another manager account.
 
-  <img width="1897" height="984" alt="image" src="https://github.com/user-attachments/assets/4433fbe9-3805-4514-89a6-e70a750f73be" />
+  Role selection:
+
+  <img width="1200" alt="Welcome page with customer and manager sign-in options" src="https://github.com/user-attachments/assets/cb7ae595-7c56-4910-9458-851d19a4ea86" />
+
+  Manager login:
+
+  <img width="1200" alt="Manager login page" src="https://github.com/user-attachments/assets/2adeeb7a-8be9-46fd-bbad-b96907c23cd1" />
+
+  New manager registration:
+
+  <img width="1200" alt="Manager registration page" src="https://github.com/user-attachments/assets/5e9db104-71ea-493e-a905-e392e983f820" />
 
 - **Step 2: Operations Management** — Managers use the operations portal to oversee queue movements, bookings, menu items, active food orders, and table bills.
 
@@ -151,7 +167,7 @@ A browser-based web application is optimal for this deployment because both cust
   - `pending` → `preparing` → `ready` → `arrived` (via **Advance Status**)
   - `arrived` → `paid` (via **Mark as Paid**)
  
-  <img width="1897" height="999" alt="image" src="https://github.com/user-attachments/assets/22e667f7-4c6b-4dbd-8ba6-51504df3f6c6" />
+  <img width="1200" alt="Manager orders and table payment management" src="https://github.com/user-attachments/assets/54a13098-61e0-491b-a3d1-c22facb2a6be" />
 
   **Booking Management** — Managers oversee the restaurant’s booking schedule and booking records.
 
@@ -159,7 +175,7 @@ A browser-based web application is optimal for this deployment because both cust
 
 - **Step 3: Service Analytics** — Managers select a date range and review paid revenue, paid-order counts, top-selling dishes, revenue trends, and dish sales.
 
-  <img width="1897" height="993" alt="image" src="https://github.com/user-attachments/assets/1a58fee0-0ace-4c2c-9a4c-a70c4cbf64a8" />
+  <img width="1200" alt="Manager dashboard with date range and service metrics" src="https://github.com/user-attachments/assets/7d605a70-57ca-46b2-b285-c67f67c43da7" />
   
 ### 9. Anticipated Technical Challenges & Execution Plan
 1. Frontend Architecture & Full-Stack Integration (React, Vite, React Router, Context API):  
