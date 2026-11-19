@@ -337,7 +337,23 @@ async function listByUser(req, res) {
        ORDER BY COALESCE(o.table_id, b.table_id), o.order_time DESC`,
       [user_id, user_id]
     );
-    return res.json(rows);
+    const orders = new Map(rows.map(order => [order.order_id, { ...order, items: [] }]));
+    if (orders.size > 0) {
+      const orderIds = [...orders.keys()];
+      const placeholders = orderIds.map(() => '?').join(', ');
+      const [items] = await db.query(
+        `SELECT oi.order_id, oi.order_item_id, oi.quantity, oi.unit_price, oi.subtotal, m.name
+         FROM order_items oi
+         JOIN menu_items m ON m.item_id = oi.item_id
+         WHERE oi.order_id IN (${placeholders})
+         ORDER BY oi.order_item_id`,
+        orderIds
+      );
+      for (const item of items) {
+        orders.get(item.order_id)?.items.push(item);
+      }
+    }
+    return res.json([...orders.values()]);
   } catch (err) {
     console.error('listByUser order error:', err);
     return res.status(500).json({ error: 'Please try again later.' });

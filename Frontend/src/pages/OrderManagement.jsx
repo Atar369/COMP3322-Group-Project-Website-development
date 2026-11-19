@@ -227,9 +227,16 @@ export default function OrderManagement() {
                     ? <span className="orders-cart-order">Loading orders…</span>
                     : cardOrders.length > 0
                   ? cardOrders.map(order => (
-                    <span key={order.order_id} className="orders-cart-order">
+                    <div key={order.order_id} className="orders-cart-order-group">
+                      <span className="orders-cart-order">
                       Order #{order.order_id} · ${Number(order.total_amount).toFixed(2)}
-                    </span>
+                      </span>
+                      <span className="orders-cart-items">
+                        {order.items?.length
+                          ? order.items.map(item => `${item.name} × ${item.quantity}`).join(', ')
+                          : 'Order items unavailable'}
+                      </span>
+                    </div>
                   ))
                     : <span className="orders-cart-order">No orders placed yet</span>}
               </div>

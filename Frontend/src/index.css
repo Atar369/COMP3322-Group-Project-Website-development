@@ -352,6 +352,8 @@ a { color: inherit; }
 .orders-cart-primary > strong { color: #2d281e; font-size: 1.28rem; letter-spacing: 0.01em; }
 .orders-cart-order, .orders-cart-details { font-family: var(--font-body); font-size: 0.85rem; color: #6b6558; }
 .orders-cart-order { font-variant-numeric: tabular-nums; }
+.orders-cart-order-group { display: flex; flex-direction: column; gap: 2px; }
+.orders-cart-items { padding-left: 8px; color: #39352d; font-family: var(--font-body); font-size: 0.78rem; line-height: 1.4; }
 .orders-cart-details { position: relative; padding: 4px 18px; border-left: 1px solid rgba(189, 175, 147, 0.52); border-right: 1px solid rgba(189, 175, 147, 0.35); line-height: 1.6; }
 .orders-cart-request { font-style: italic; }
 .orders-cart-control { align-items: flex-end; gap: 10px; }

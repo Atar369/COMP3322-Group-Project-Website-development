@@ -18,6 +18,14 @@ function formatTimeRemaining(remainingMs) {
   return `${String(minutes).padStart(2, '0')} min ${String(seconds).padStart(2, '0')} sec remaining`;
 }
 
+function formatSessionDateTime(session) {
+  if (session.served_at) return formatDateTime(session.served_at);
+  if (session.booking_date) {
+    return `${String(session.booking_date).slice(0, 10)} ${String(session.booking_time || '').slice(0, 5)}`.trim();
+  }
+  return '';
+}
+
 function normalizeDate(value) {
   return value ? getRestaurantDateForTimestamp(value) : '';
 }
@@ -398,7 +406,9 @@ export default function ManagerOrders() {
             : remainingMs > 0
               ? formatTimeRemaining(remainingMs)
               : '⚠ Customer has been seated for 1 hour — collect payment.';
-          const orderDateTimes = tableOrders.map(order => formatDateTime(order.order_time)).join(', ');
+          const orderDateTimes = tableOrders
+            .map(order => `Order #${order.order_id} — ${formatDateTime(order.order_time)}`)
+            .join('; ');
           const foodItems = new Map();
           tableOrders.forEach(order => order.items.forEach(item => {
             const existing = foodItems.get(item.name);
@@ -422,7 +432,17 @@ export default function ManagerOrders() {
 
               <div className="manager-table-order-details">
                 <span><strong>Customer:</strong> {table.customerName || '—'}</span>
-                <span><strong>Date / Time:</strong> {orderDateTimes || '—'}</span>
+                {tableOrders.length > 0
+                  ? <span><strong>Orders placed:</strong> {orderDateTimes}</span>
+                  : table.sessions.map((session, index) => {
+                    const dateTime = formatSessionDateTime(session);
+                    if (!dateTime) return null;
+                    return (
+                      <span key={`${session.session_id}-${index}`}>
+                        <strong>{session.served_at ? 'Seated at:' : 'Booking:'}</strong> {dateTime}
+                      </span>
+                    );
+                  })}
                 <span><strong>Party size:</strong> {partySize} people</span>
                 {specialRequests.map((request, index) => (
                   <span key={`${request}-${index}`}><strong>Special request:</strong> {request}</span>
