@@ -47,30 +47,6 @@ async function buildTransporter() {
   return cachedTransporter;
 }
 
-async function sendPasswordResetEmail({ to, name, resetLink }) {
-  const transporter = await buildTransporter();
-  const fromAddress = process.env.SMTP_FROM || process.env.SMTP_USER || 'no-reply@emberandoak.local';
-
-  const info = await transporter.sendMail({
-    from: `"Ember & Oak" <${fromAddress}>`,
-    to,
-    subject: 'Reset your Ember & Oak password',
-    text: `Hi ${name || 'there'},\n\nUse the link below to reset your password. It expires in 15 minutes and can be used only once.\n\n${resetLink}\n\nIf you did not request this, you can ignore this email.`,
-    html: `
-      <p>Hi ${name || 'there'},</p>
-      <p>Use the link below to reset your password. It expires in <strong>15 minutes</strong> and can be used only once.</p>
-      <p><a href="${resetLink}">${resetLink}</a></p>
-      <p>If you did not request this, you can ignore this email.</p>
-    `,
-  });
-
-  const previewUrl = nodemailer.getTestMessageUrl(info);
-  if (previewUrl) {
-    console.log(`Password reset email preview: ${previewUrl}`);
-  }
-  return info;
-}
-
 function escapeHtml(value) {
   return String(value || '').replace(/[&<>"']/g, character => ({
     '&': '&amp;',
@@ -107,4 +83,4 @@ async function sendEmailVerificationEmail({ to, name, verificationLink }) {
   return { info, previewUrl };
 }
 
-module.exports = { sendPasswordResetEmail, sendEmailVerificationEmail };
+module.exports = { sendEmailVerificationEmail };

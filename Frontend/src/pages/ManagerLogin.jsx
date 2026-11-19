@@ -21,7 +21,6 @@ export default function ManagerLogin() {
       image="/login-images/login-manager.jpg"
       onSubmit={handleLogin}
     >
-      <p><Link className="cl-login01__link" to="/forgot-password">Forgot password?</Link></p>
       <p style={{ marginTop: 8 }}><Link className="cl-login01__link" to="/welcome">Back to choice</Link></p>
     </LoginLayout>
   );

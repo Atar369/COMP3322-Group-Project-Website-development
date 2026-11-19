@@ -26,7 +26,6 @@ export default function CustomerLogin() {
       onSubmit={handleLogin}
     >
       <p>No account? <Link className="cl-login01__link" to="/register/customer">Register</Link></p>
-      <p style={{ marginTop: 8 }}><Link className="cl-login01__link" to="/forgot-password">Forgot password?</Link></p>
       <p style={{ marginTop: 8 }}><Link className="cl-login01__link" to="/login">Back to choice</Link></p>
     </LoginLayout>
   );

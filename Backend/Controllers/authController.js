@@ -3,11 +3,10 @@ const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
 const pool = require('../db');
 const { parseUtcDateTime } = require('../utils/restaurantTime');
-const { sendPasswordResetEmail, sendEmailVerificationEmail } = require('../utils/mailer');
+const { sendEmailVerificationEmail } = require('../utils/mailer');
 
 const IS_PROD = process.env.NODE_ENV === 'production';
 const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || '7d';
-const RESET_TOKEN_TTL_MS = 15 * 60 * 1000;
 const EMAIL_VERIFICATION_TTL_HOURS = 24;
 const EMAIL_VERIFICATION_RESEND_COOLDOWN_SECONDS = 60;
 const MAX_FAILED_ATTEMPTS = 5;
@@ -38,10 +37,6 @@ function signToken(user) {
 function createEmailVerificationToken() {
   const token = crypto.randomBytes(32).toString('hex');
   return { token, tokenHash: crypto.createHash('sha256').update(token).digest('hex') };
-}
-
-function hashResetToken(token) {
-  return crypto.createHash('sha256').update(token).digest('hex');
 }
 
 function getEmailVerificationLink(token) {
@@ -532,8 +527,7 @@ exports.changePassword = async (req, res) => {
     const newHash = await bcrypt.hash(newPassword, 10);
     await pool.query(
       `UPDATE users
-       SET password_hash = ?, reset_token = NULL, reset_token_expires = NULL,
-           failed_attempts = 0, lock_until = NULL, last_failed_at = NULL
+       SET password_hash = ?, failed_attempts = 0, lock_until = NULL, last_failed_at = NULL
        WHERE user_id = ?`,
       [newHash, req.user.user_id]
     );
@@ -541,98 +535,6 @@ exports.changePassword = async (req, res) => {
   } catch (err) {
     console.error('Change password error:', err);
     return res.status(500).json({ error: 'Internal server error' });
-  }
-};
-
-// POST /api/auth/forgot-password
-exports.forgotPassword = async (req, res) => {
-  const genericMessage = 'If an account exists for that email, a password reset link has been sent.';
-
-  try {
-    const { email } = req.body;
-    if (!email) {
-      return res.status(200).json({ message: genericMessage });
-    }
-
-    const [rows] = await pool.query(
-      'SELECT user_id, name, email FROM users WHERE email = ?',
-      [email.trim().toLowerCase()]
-    );
-    if (rows.length === 0) {
-      return res.status(200).json({ message: genericMessage });
-    }
-
-    const user = rows[0];
-    const resetToken = crypto.randomBytes(32).toString('hex');
-    const resetTokenHash = hashResetToken(resetToken);
-    const resetTokenExpires = new Date(Date.now() + RESET_TOKEN_TTL_MS);
-
-    await pool.query(
-      'UPDATE users SET reset_token = ?, reset_token_expires = ? WHERE user_id = ?',
-      [resetTokenHash, resetTokenExpires, user.user_id]
-    );
-
-    const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
-    const resetLink = `${frontendUrl}/forgot-password?token=${resetToken}`;
-
-    if (!IS_PROD) {
-      console.log(`\n=============================================`);
-      console.log(`🔑 PASSWORD RESET LINK: ${resetLink}`);
-      console.log(`=============================================\n`);
-    }
-
-    try {
-      await sendPasswordResetEmail({ to: user.email, name: user.name, resetLink });
-    } catch (mailError) {
-      console.error('Password reset email failed:', mailError);
-    }
-
-    return res.status(200).json({
-      message: genericMessage,
-      ...(IS_PROD ? {} : { resetToken, resetLink }),
-    });
-  } catch (err) {
-    console.error('Forgot password error:', err);
-    return res.status(200).json({ message: genericMessage });
-  }
-};
-
-// POST /api/auth/reset-password
-exports.resetPassword = async (req, res) => {
-  try {
-    const { token, newPassword } = req.body;
-    if (!token || !newPassword) {
-      return res.status(400).json({ error: 'Token and new password are required' });
-    }
-
-    const tokenHash = hashResetToken(token);
-    const [rows] = await pool.query(
-      'SELECT user_id, role FROM users WHERE reset_token = ? AND reset_token_expires > UTC_TIMESTAMP()',
-      [tokenHash]
-    );
-    if (rows.length === 0) {
-      return res.status(400).json({ error: 'Invalid or expired reset token' });
-    }
-
-    const targetRole = rows[0].role;
-    const minLength = targetRole === 'manager' ? MANAGER_PASSWORD_MIN_LENGTH : MIN_PASSWORD_LENGTH;
-    if (newPassword.length < minLength) {
-      return res.status(400).json({ error: `Password must be at least ${minLength} characters` });
-    }
-
-    const newHash = await bcrypt.hash(newPassword, 10);
-    await pool.query(
-      `UPDATE users
-       SET password_hash = ?, reset_token = NULL, reset_token_expires = NULL,
-           failed_attempts = 0, lock_until = NULL, last_failed_at = NULL
-       WHERE user_id = ?`,
-      [newHash, rows[0].user_id]
-    );
-
-    return res.status(200).json({ message: 'Password has been reset successfully.' });
-  } catch (err) {
-    console.error('Reset password error:', err);
-    return res.status(500).json({ error: 'Failed to reset password. Please try again later.' });
   }
 };
 

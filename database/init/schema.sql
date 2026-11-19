@@ -10,8 +10,6 @@ CREATE TABLE users (
   phone VARCHAR(30) NOT NULL,
   password_hash VARCHAR(255) NOT NULL,
   role VARCHAR(8) NOT NULL DEFAULT 'customer',
-  reset_token VARCHAR(255) NULL,
-  reset_token_expires DATETIME NULL,
   email_verified BOOLEAN NOT NULL DEFAULT TRUE,
   email_verification_token_hash CHAR(64) NULL,
   email_verification_expires DATETIME NULL,
