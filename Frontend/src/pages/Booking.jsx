@@ -160,14 +160,14 @@ export default function Booking() {
                   <button type="button" onClick={() => updatePreOrderQty(item.item_id, -1)} style={{ border: '1px solid var(--ink)', background: 'none', borderRadius: '50%', width: 24, height: 24, cursor: 'pointer' }}>-</button>
                   <span style={{ fontWeight: 600, minWidth: 20, textAlign: 'center' }}>{item.qty}</span>
                   <button type="button" onClick={() => updatePreOrderQty(item.item_id, 1)} style={{ border: '1px solid var(--ink)', background: 'none', borderRadius: '50%', width: 24, height: 24, cursor: 'pointer' }}>+</button>
-                  <span className="price"></span>
+                  <span className="price">${(item.price * item.qty).toFixed(2)}</span>
                   <button type="button" className="btn secondary" style={{ padding: '2px 8px', fontSize: '0.75rem' }} onClick={() => removePreOrderItem(item.item_id)}>Remove</button>
                 </div>
               ))}
-              <p style={{ display: 'flex', justifyContent: 'space-between', marginTop: 10, fontWeight: 600 }}>
+              <div className="booking-preorder-total">
                 <span>Total:</span>
-                <span>${preOrderTotal.toFixed(2)}</span>
-              </p>
+                <strong>${preOrderTotal.toFixed(2)}</strong>
+              </div>
             </div>
           )}
         </div>

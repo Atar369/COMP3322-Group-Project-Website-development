@@ -1447,6 +1447,13 @@ a { color: inherit; }
 .booking-preorder-grid .menu-food-content { display: flex; flex-direction: column; }
 .booking-preorder-grid .menu-food-description { flex: 1; }
 .booking-preorder-grid .menu-empty-state { grid-column: 1 / -1; }
+.booking-preorder-total {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 10px;
+  font-weight: 600;
+}
+.booking-preorder-total strong { text-align: right; }
 .menu-food-card {
   min-width: 0;
   overflow: hidden;
