@@ -90,10 +90,11 @@ A browser-based web application is optimal for this deployment because both cust
   System landing page:  
   <img width="1200" alt="Ember & Oak landing page" src="https://github.com/user-attachments/assets/b501d941-c6f8-48c4-8611-cd9e23219678" />
 
-  Customer login page:  
-  <img width="1200" alt="Customer login page" src="https://github.com/user-attachments/assets/6441b481-7a87-4e54-a934-059a53181abe" />
+  Customer login page:
+  
+<img width="1440" height="900" alt="Customer login page" src="https://github.com/user-attachments/assets/ec283463-75b1-4070-a0d4-0e089d93f184" />
 
-  Customer register page:  
+  Customer registration page:  
   <img width="1200" alt="Customer registration page" src="https://github.com/user-attachments/assets/19bf743a-f7e7-445c-9274-a572702719c3" />
 
 - **Step 2: Reserve Table** — The customer chooses a date, time, and party size, optionally adds a special request and pre-order courses, and confirms the booking. The system assigns a table automatically.
@@ -147,7 +148,8 @@ A browser-based web application is optimal for this deployment because both cust
 
   Manager login:
 
-  <img width="1200" alt="Manager login page" src="https://github.com/user-attachments/assets/2adeeb7a-8be9-46fd-bbad-b96907c23cd1" />
+  <img width="1440" height="900" alt="Manager login page" src="https://github.com/user-attachments/assets/f765c4c7-f987-4187-86a6-c1d05b0bf89e" />
+
 
   New manager registration:
 
@@ -159,7 +161,7 @@ A browser-based web application is optimal for this deployment because both cust
   - `waiting` → **Call** → `calling` (group is notified)
   - `calling` → **Seated** → `seated` (group is assigned a table)
  
-  <img width="1440" height="900" alt="Screenshot 2026-11-19 at 11 42 10 PM" src="https://github.com/user-attachments/assets/54095cae-9d22-4357-a80b-04f20095b113" />
+  <img width="1440" height="900" alt="Queue management with call and wait buttons" src="https://github.com/user-attachments/assets/54095cae-9d22-4357-a80b-04f20095b113" />
 
 
   **Order Management** — Managers advance kitchen order stages and confirm payment:
