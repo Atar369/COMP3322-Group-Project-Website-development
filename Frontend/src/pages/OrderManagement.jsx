@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useCart } from '../context/CartContext';
 import api from '../services/api';
+import { socket } from '../socket';
 import {
   formatOrderWindowCountdown,
   getOrderWindowStatus,
@@ -70,7 +71,16 @@ export default function OrderManagement() {
       });
   }, [user]);
 
-  useEffect(load, [load]);
+  useEffect(() => {
+    load();
+    if (!socket.connected) socket.connect();
+    socket.on('queue:update', load);
+    socket.on('order:status-update', load);
+    return () => {
+      socket.off('queue:update', load);
+      socket.off('order:status-update', load);
+    };
+  }, [load]);
 
   function handleOrder(type, id) {
     if (isBeforeRestaurantOpening() || isOrderPlacementCutoffReached() || !id) return;
