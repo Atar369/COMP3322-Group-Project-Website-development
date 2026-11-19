@@ -124,7 +124,7 @@ A browser-based web application is optimal for this deployment because both cust
   <img width="1200" alt="Customer order history" src="https://github.com/user-attachments/assets/ae8fc582-7c0f-4667-89ca-7e29cdc586d8" />
 
   Queue history page:  
-  <img width="1440" height="900" alt="Screenshot 2026-11-19 at 4 50 07 PM" src="https://github.com/user-attachments/assets/e7ee5b9b-915f-4329-b2ef-3c49e425296a" />
+  <img width="1440" height="900" alt="Customer queue history" src="https://github.com/user-attachments/assets/e7ee5b9b-915f-4329-b2ef-3c49e425296a" />
 
 
   Booking management page:
@@ -168,8 +168,9 @@ A browser-based web application is optimal for this deployment because both cust
   <img width="1200" alt="Manager orders and table payment management" src="https://github.com/user-attachments/assets/54a13098-61e0-491b-a3d1-c22facb2a6be" />
 
   **Booking Management** — Managers oversee the restaurant’s booking schedule and booking records.
+<img width="1440" height="900" alt="Booking management in manager side" src="https://github.com/user-attachments/assets/ae693ade-22b0-4e78-9155-10c2ca54d909" />
 
-  <img width="1897" height="1056" alt="image" src="https://github.com/user-attachments/assets/2cf1b689-5523-4564-9521-d3332c11f003" />
+  
 
 - **Step 3: Service Analytics** — Managers select a date range and review paid revenue, paid-order counts, top-selling dishes, revenue trends, and dish sales.
 
