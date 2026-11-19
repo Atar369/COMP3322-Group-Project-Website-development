@@ -120,9 +120,6 @@ A browser-based web application is optimal for this deployment because both cust
 
 - **Step 5: Manage Dining Activity** — Customers can review order and booking histories, manage upcoming bookings and their pre-order courses, monitor queue progress, and update personal information or their password.
 
-  Review order progress page:  
-  <img width="1897" height="990" alt="image" src="https://github.com/user-attachments/assets/7a1209f2-b7d4-4392-bdcf-68d73370e8c6" />
-
   Order history page:  
   <img width="1200" alt="Customer order history" src="https://github.com/user-attachments/assets/ae8fc582-7c0f-4667-89ca-7e29cdc586d8" />
 
