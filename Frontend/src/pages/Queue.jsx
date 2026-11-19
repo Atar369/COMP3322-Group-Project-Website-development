@@ -106,7 +106,7 @@ export default function Queue() {
     if (!socket.connected) socket.connect();
 
     const refresh = payload => {
-      if (payload?.action === 'call' || payload?.action === 'auto-call') {
+      if (payload?.action === 'call') {
         const entry = myEntryRef.current;
         const calledNumber = String(payload.queueNumber || '');
 

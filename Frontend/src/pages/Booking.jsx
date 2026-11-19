@@ -164,7 +164,10 @@ export default function Booking() {
                   <button type="button" className="btn secondary" style={{ padding: '2px 8px', fontSize: '0.75rem' }} onClick={() => removePreOrderItem(item.item_id)}>Remove</button>
                 </div>
               ))}
-              <p style={{ marginTop: 10, fontWeight: 600 }}>Total: </p>
+              <p style={{ display: 'flex', justifyContent: 'space-between', marginTop: 10, fontWeight: 600 }}>
+                <span>Total:</span>
+                <span>${preOrderTotal.toFixed(2)}</span>
+              </p>
             </div>
           )}
         </div>

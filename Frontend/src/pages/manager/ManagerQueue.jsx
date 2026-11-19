@@ -6,7 +6,6 @@ import { getRestaurantTimestamp } from '../../utils/restaurantTime';
 
 const GROUPS = ['A', 'B', 'C'];
 const GROUP_RANGES = { A: '1–2 People', B: '3–6 People', C: '7+ People' };
-const AUTO_CALL_TIMEOUT_MS = 120_000;
 const DINING_SESSION_MS = 60 * 60 * 1000;
 
 function getGroupLabel(size) {
@@ -29,7 +28,6 @@ function getNextQueued(queue, group) {
 
 export default function ManagerQueue() {
   const [queue, setQueue] = useState([]);
-  const [autoCall, setAutoCall] = useState({});
   const [notifications, setNotifications] = useState([]);
   const [error, setError] = useState('');
 
@@ -44,16 +42,11 @@ export default function ManagerQueue() {
 
   const load = useCallback(async () => {
     try {
-      const [queueResponse, settingsResponse] = await Promise.all([
-        api.get('/queue'),
-        api.get('/queue/auto-call'),
-      ]);
+      const queueResponse = await api.get('/queue');
       setQueue(Array.isArray(queueResponse.data) ? queueResponse.data : []);
-      const settings = Array.isArray(settingsResponse.data) ? settingsResponse.data : [];
-      setAutoCall(Object.fromEntries(settings.map(setting => [setting.group_code, Boolean(setting.enabled)])));
       setError('');
     } catch {
-      setError('Unable to load queue and auto-call status. Please retry.');
+      setError('Unable to load the queue. Please retry.');
     }
   }, []);
 
@@ -124,27 +117,11 @@ export default function ManagerQueue() {
     }
   }
 
-  async function handleToggleAutoCall(group) {
-    if (isBusy(group, 'auto')) return;
-    const enabled = !autoCall[group];
-    setBusyFlag(group, 'auto', true);
-    setError('');
-    try {
-      await api.patch(`/queue/auto-call/${group}`, { enabled });
-      await load();
-    } catch (requestError) {
-      setError(requestError.response?.data?.error || 'Unable to change auto-call mode.');
-    } finally {
-      setBusyFlag(group, 'auto', false);
-    }
-  }
-
   return (
     <div className="page">
       <h1>Queue Management</h1>
       <p style={{ color: '#6b6558', fontSize: '0.85rem', marginBottom: 20 }}>
-        Auto call selects the next waiting party with a suitable free table. Unseated calls are marked missed after 10 seconds.
-        Use <strong>Call next</strong> to manually call the next waiting party in a group.
+        Use <strong>Call next</strong> to call the next waiting party in a group, then mark them <strong>Seated</strong> when they arrive.
       </p>
       {cutoffReached && (
         <p className="error-text">Queue calls and seating stop at 9:00 PM. The restaurant closes at 10:00 PM.</p>
@@ -178,16 +155,8 @@ export default function ManagerQueue() {
         {GROUPS.map(group => {
           const currentCall = getCurrentCall(queue, group);
           const nextQueued = getNextQueued(queue, group);
-          const callAge = currentCall?.called_at
-            ? Math.max(0, now - getRestaurantTimestamp(currentCall.called_at))
-            : null;
-          const remainingSeconds = callAge === null
-            ? null
-            : Math.max(0, Math.ceil((AUTO_CALL_TIMEOUT_MS - callAge) / 1000));
-
           const seating = isBusy(group, 'seat');
           const calling = isBusy(group, 'call');
-          const toggling = isBusy(group, 'auto');
 
           return (
             <div key={group} className="card" style={{ padding: 18, textAlign: 'center' }}>
@@ -203,7 +172,6 @@ export default function ManagerQueue() {
                 <div style={{ minHeight: 42, marginTop: 8, color: '#6b6558', fontSize: '0.85rem' }}>
                   Party of {currentCall.party_size}
                   {currentCall.assigned_table_number && ` · Table ${currentCall.assigned_table_number}`}
-                  {autoCall[group] && remainingSeconds > 0 && ` · ${remainingSeconds}s to seat`}
                 </div>
               )}
               <div style={{ minHeight: 18, marginTop: 4, color: '#6b6558', fontSize: '0.78rem' }}>

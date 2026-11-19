@@ -15,8 +15,6 @@ router.patch('/:id/finish', verifyToken, queueController.finish);
 
 // Manager only
 router.get('/manager/history', verifyToken, requireRole('manager'), queueController.managerHistory);
-router.get('/auto-call', verifyToken, requireRole('manager'), queueController.autoCallSettings);
-router.patch('/auto-call/:group', verifyToken, requireRole('manager'), queueController.setAutoCall);
 
 router.patch('/:id/call', verifyToken, requireRole('manager'), queueController.call);
 router.patch('/:id/checkin', verifyToken, requireRole('manager'), queueController.checkin);

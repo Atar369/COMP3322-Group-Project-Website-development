@@ -74,16 +74,16 @@ app.set('io', io);
 queueController.setSocketIo(io);
 
 // Background tasks
-const AUTO_CALL_INTERVAL_MS = 2000; // 2s
+const QUEUE_MAINTENANCE_INTERVAL_MS = 2000; // 2s
 const AUTO_FINISH_INTERVAL_MS = 60 * 1000; // 1 min
 const BOOKING_NO_SHOW_INTERVAL_MS = 15 * 1000; // 15s
 
 function startBackgroundTasks() {
   setInterval(() => {
-    queueController.autoCallCycle().catch(error => {
-      console.error('Automatic queue call cycle failed:', error);
+    queueController.queueMaintenanceCycle().catch(error => {
+      console.error('Queue maintenance cycle failed:', error);
     });
-  }, AUTO_CALL_INTERVAL_MS);
+  }, QUEUE_MAINTENANCE_INTERVAL_MS);
 
   // Auto-finish queue sessions that have been serving for 1 hour
   setInterval(() => {

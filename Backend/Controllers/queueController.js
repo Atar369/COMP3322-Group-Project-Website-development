@@ -4,25 +4,19 @@ const {
   isRestaurantEntryCutoffReached,
   isQueueEntryWindowOpen,
 } = require('../utils/orderingWindow');
-const { getRestaurantDateKey, parseUtcDateTime } = require('../utils/restaurantTime');
+const { getRestaurantDateKey } = require('../utils/restaurantTime');
 
 let socketIo = null;
 function setSocketIo(io) {
   socketIo = io;
 }
 
-const QUEUE_GROUPS = ['A', 'B', 'C'];
 const MAX_QUEUE_NUMBER = 999;
-const AUTO_CALL_MISSED_AFTER_MS = 120_000;
 
 function getGroupPrefix(party_size) {
   if (party_size <= 2) return 'A';
   if (party_size <= 6) return 'B';
   return 'C';
-}
-
-function isQueueGroup(group) {
-  return QUEUE_GROUPS.includes(group);
 }
 
 function isValidPartySize(value) {
@@ -372,41 +366,6 @@ async function checkin(req, res) {
   }
 }
 
-async function autoCallSettings(req, res) {
-  try {
-    const [rows] = await db.query(
-      `SELECT group_code, enabled, updated_at
-       FROM queue_auto_call_settings ORDER BY group_code`
-    );
-    return res.json(rows);
-  } catch (err) {
-    console.error('load auto-call settings error:', err);
-    return res.status(500).json({ error: 'Please try again later.' });
-  }
-}
-
-async function setAutoCall(req, res) {
-  const { group } = req.params;
-  const { enabled } = req.body;
-  if (!isQueueGroup(group) || typeof enabled !== 'boolean') {
-    return res.status(400).json({ error: 'A valid group and boolean enabled value are required.' });
-  }
-  if (enabled && isRestaurantEntryCutoffReached()) {
-    return res.status(409).json({ error: 'Automatic queue calls stop at 21:00 (9:00 PM). The restaurant closes at 22:00 (10:00 PM).' });
-  }
-  try {
-    await db.query(
-      `UPDATE queue_auto_call_settings SET enabled = ? WHERE group_code = ?`,
-      [enabled, group]
-    );
-    emit(req, { action: 'auto-call', group, enabled });
-    return res.json({ group, enabled });
-  } catch (err) {
-    console.error('update auto-call settings error:', err);
-    return res.status(500).json({ error: 'Please try again later.' });
-  }
-}
-
 async function findAvailableTable(conn, partySize) {
   const [tables] = await conn.query(
     `SELECT t.table_id, t.table_number, t.capacity
@@ -513,87 +472,8 @@ async function seat(req, res) {
   }
 }
 
-async function processAutoCallGroup(group) {
-  if (!isQueueGroup(group)) throw new Error(`Invalid queue group: ${group}`);
-  if (!isQueueEntryWindowOpen()) return;
-  const queueDate = getRestaurantDateKey();
-  const conn = await db.getConnection();
-
-  try {
-    await conn.beginTransaction();
-
-    const [settings] = await conn.query(
-      `SELECT enabled FROM queue_auto_call_settings WHERE group_code = ? FOR UPDATE`,
-      [group]
-    );
-    if (!settings.length || !settings[0].enabled) {
-      await conn.commit();
-      return;
-    }
-    if (!isQueueEntryWindowOpen()) {
-      await conn.commit();
-      return;
-    }
-
-    const prefix = `${group}%`;
-    const [called] = await conn.query(
-      `SELECT queue_id, called_at FROM queue_entries
-       WHERE queue_date = ? AND queue_number LIKE ? AND status = 'called'
-       ORDER BY called_at DESC, queue_id DESC LIMIT 1 FOR UPDATE`,
-      [queueDate, prefix]
-    );
-
-    if (called.length) {
-      const elapsed = Date.now() - parseUtcDateTime(called[0].called_at);
-      if (elapsed < AUTO_CALL_MISSED_AFTER_MS) {
-        await conn.commit();
-        return;
-      }
-      await conn.query(
-        `UPDATE queue_entries SET status = 'missed', reserved_table_id = NULL
-         WHERE queue_id = ? AND status = 'called'`,
-        [called[0].queue_id]
-      );
-    }
-
-    const [waiting] = await conn.query(
-      `SELECT queue_id, user_id, party_size, queue_number FROM queue_entries
-       WHERE queue_date = ? AND queue_number LIKE ? AND status = 'queued'
-       ORDER BY queue_number ASC, joined_at ASC, queue_id ASC FOR UPDATE`,
-      [queueDate, prefix]
-    );
-
-    for (const entry of waiting) {
-      if (!isQueueEntryWindowOpen()) break;
-      const table = await findAvailableTable(conn, entry.party_size);
-      if (!table) continue;
-
-      const [callResult] = await conn.query(
-        `UPDATE queue_entries
-         SET status = 'called', called_at = UTC_TIMESTAMP(), reserved_table_id = ?
-         WHERE queue_id = ? AND status = 'queued'
-           AND HOUR(DATE_ADD(UTC_TIMESTAMP(), INTERVAL 8 HOUR)) < 21`,
-        [table.table_id, entry.queue_id]
-      );
-      if (!callResult.affectedRows) {
-        await conn.rollback();
-        return;
-      }
-      await conn.commit();
-      emit(null, { action: 'auto-call', queueId: entry.queue_id, queueNumber: entry.queue_number, calledUserId: entry.user_id, calledQueueId: entry.queue_id, calledQueueNumber: entry.queue_number });
-      break;
-    }
-    await conn.commit();
-  } catch (err) {
-    await conn.rollback();
-    throw err;
-  } finally {
-    conn.release();
-  }
-}
-
-// Core fix: Clean up past queue entries when the background task runs daily
-async function autoCallCycle() {
+// Clean up stale queue entries and clear unseated calls after closing time.
+async function queueMaintenanceCycle() {
   if (isBeforeRestaurantOpening()) return;
   const today = getRestaurantDateKey();
   
@@ -606,7 +486,6 @@ async function autoCallCycle() {
          WHERE queue_date = ? AND status = 'called'`,
         [today]
       );
-      await conn.query(`UPDATE queue_auto_call_settings SET enabled = FALSE WHERE enabled = TRUE`);
       await conn.commit();
       return;
     } catch (err) {
@@ -628,8 +507,6 @@ async function autoCallCycle() {
   } catch (error) {
     console.error('Failed to clean up past queue entries:', error);
   }
-
-  await Promise.all(QUEUE_GROUPS.map(processAutoCallGroup));
 }
 
 async function autoFinishServing() {
@@ -741,9 +618,7 @@ module.exports = {
   call,
   checkin,
   seat,
-  autoCallSettings,
-  setAutoCall,
-  autoCallCycle,
+  queueMaintenanceCycle,
   autoFinishServing,
   finish,
   pay,
