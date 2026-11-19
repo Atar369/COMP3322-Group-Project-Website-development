@@ -15,11 +15,13 @@
 The project title is formally designated as The Kitchen Ledger.
 
 ### 3. Project Description
-The Kitchen Ledger is a full-stack web application designed to streamline modern Western-style restaurant operations and enhance customer dining experiences. The platform empowers customers to reserve tables, join live walk-in queues, and place dine-in orders through an intuitive and responsive user interface. Simultaneously, restaurant managers can administer bookings, queue status, and orders in real time. The system also delivers interactive analytical dashboards that highlight customer preferences, menu item sales, daily revenue trends, and peak operational hours.
+The Kitchen Ledger is a full-stack web application for a modern Western-style restaurant named Ember & Oak. It provides an integrated digital solution for restaurant operations and customer dining services. Customers can register and log in, browse the menu, make table reservations, join and monitor a walk-in queue, place dine-in orders, review their order status, and record dish ratings and reviews. Restaurant managers can manage menu availability, process and track orders, control queue call status, maintain table bookings, and review operational and sales data through an interactive dashboard.
 
-The primary target end-user groups for the system include:
-- Customers: Individuals seeking a seamless digital solution to reserve seats or join walk-in queues without relying on traditional phone inquiries.
-- Restaurant Managers: Personnel seeking an integrated, real-time tool to coordinate table occupancy, queue flows, and order preparation, while utilizing data-driven insights to optimize business processes, resource allocation, and menu strategy without relying on legacy manual tracking
+The system is built with React and Vite on the frontend, Node.js and Express on the backend, MySQL for persistent data storage, and Socket.io for real-time queue updates. Docker Compose is used to deploy and connect the frontend, backend, and database services on the assigned project server. JWT authentication and role-based route protection separate customer functions from manager functions.
+The primary target end-user groups are:
+- **Customers:** Diners who want a convenient way to reserve a table or join a walk-in queue remotely, browse an available menu, place orders, and track their dining activity.
+- **Restaurant Managers:** Staff who need a central real-time system for coordinating table occupancy, queue movements, order preparation, menu availability, and customer service.
+The Kitchen Ledger replaces fragmented telephone reservations, physical queue lists, and manual order tracking with one responsive and connected platform. It also provides managers with data-driven summaries of revenue, menu sales, hourly activity, and customer dining preferences to support more informed operational decisions.
 
 ### 4. Feature List
 
@@ -58,12 +60,13 @@ The primary target end-user groups for the system include:
 
 ### 6. Preliminary Team Task Allocation
 
-| Team Members                        | Primary Operational Responsibilities                                                                 |
-|-------------------------------------|------------------------------------------------------------------------------------------------------|
-| Chau Wai Yee & Chung Ka Yi          | Frontend Development: Responsible for user interface design, user experience optimization, responsive layouts, and customer/manager web interfaces. |
-| Shiyu Zhang                         | Database Architecture & Analytics: Responsible for MySQL schema design, analytical backend APIs, and manager dashboard visualization components. |
-| Chiu Wing Tung                      | Business Logic Backend: Responsible for core server architecture, server-side reservation logic, order management APIs, and WebSocket integration. |
-| Wu Wing Yan                         | Backend Development: Responsible for database integration, JWT and bcrypt authentication layer for user registration & login, queue management REST APIs. |
+| Team Member | Primary Operational Responsibilities |
+|-------------|--------------------------------------|
+| **Chung Ka Yi (Kelly)** | **Frontend Development:** Develop responsive React components and pages, implement customer and manager interface layouts, integrate frontend state and API calls, and refine user flows for navigation, authentication, booking, queue, menu, ordering, and account management. |
+| **Chau Wai Yee** | **Frontend Development:** Design and implement the visual presentation and responsive user experience, develop shared UI components, and support integration of customer-facing and manager-facing pages with backend APIs. |
+| **Chiu Wing Tung** | **Business Logic Backend:** Implement and maintain Express routes and controllers, reservation and booking conflict logic, order management APIs, and Socket.io integration for real-time queue and operational updates. |
+| **Shiyu Zhang** | **Database Architecture and Analytics:** Design and maintain the MySQL schema and seed data, define data relationships and constraints, implement analytical SQL queries, and support the manager dashboard's sales and operational visualizations. |
+| **Wu Wing Yan** | **Authentication and Queue Backend:** Implement database integration, user registration and login with JWT and bcrypt, account verification and security middleware, queue management APIs, and supporting queue workflows. |
 
 ### 7. Problem Statement & Target User Context
 A significant number of food and beverage establishments continue to rely on manual phone reservations and physical waitlists for managing customer access. This traditional methodology frequently results in operational inefficiencies, including table double-bookings, and extended customer wait times.
