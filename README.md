@@ -160,7 +160,7 @@ For a local backend, set the bootstrap variables in the backend process environm
 
 | Role     | Email                 | Password     |
 | -------- | --------------------- | ------------ |
-| Customer | alice@example.com     | [password]   |
+| Customer | alex@example.com      | [password]   |
 | Manager  | manager@example.com   | [password]   |
 
 Managers sign in using their email address. This shared demo credential is for local coursework/demo use only. Replace or remove it before deploying the app publicly; for a custom first manager, use the bootstrap process above.
