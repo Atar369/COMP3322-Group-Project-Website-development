@@ -1,6 +1,7 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import api from '../services/api';
+import { socket } from '../socket';
 import OrderStatusTracker from '../components/OrderStatusTracker';
 
 export default function OrderStatus() {
@@ -8,14 +9,23 @@ export default function OrderStatus() {
   const [order, setOrder] = useState(null);
   const [loading, setLoading] = useState(true);
 
-  function load() {
+  const load = useCallback(() => {
     api.get(`/orders/${id}`)
       .then(r => setOrder(r.data))
       .catch(() => setOrder(null))
       .finally(() => setLoading(false));
-  }
+  }, [id]);
 
-  useEffect(load, [id]);
+  useEffect(() => {
+    load();
+    if (!socket.connected) socket.connect();
+    socket.on('queue:update', load);
+    socket.on('order:status-update', load);
+    return () => {
+      socket.off('queue:update', load);
+      socket.off('order:status-update', load);
+    };
+  }, [load]);
 
   // Derive session status from the linked booking or queue
   function getSessionStatus() {

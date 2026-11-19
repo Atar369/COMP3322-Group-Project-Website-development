@@ -22,8 +22,10 @@ If Google does not offer App Passwords, check the account's 2-Step Verification 
 ## Configure the project
 
 Edit the project-root `.env` file, beside `docker-compose.yml`. Do not put these settings in frontend source code or `Frontend/.env`.
+The verification link must point to the same frontend environment used to register. For local Docker, set `FRONTEND_URL=http://localhost`. On the deployed server, set it to `FRONTEND_URL=http://c3322-pg04.cs.hku.hk`. The Compose default is the deployed server URL.
 
 ```env
+FRONTEND_URL=http://localhost
 SMTP_HOST=smtp.gmail.com
 SMTP_PORT=587
 SMTP_USER=sender-address@gmail.com
@@ -41,6 +43,14 @@ git check-ignore .env
 ```
 
 If that command does not report that `.env` is ignored, stop and ensure the file is not staged or committed. Do not add secrets to `.env.example`; that file should contain placeholders only.
+
+## Test registration locally
+
+With no SMTP credentials configured, the development backend uses an Ethereal test mailbox and returns a **Preview verification email** link after registration. In `.env`, leave `SMTP_HOST`, `SMTP_USER`, and `SMTP_PASS` blank and set `FRONTEND_URL=http://localhost`. Register through `/register/customer` using an email and phone number not already in the database, then open the preview and click the verification link. It should open `http://localhost/verify-email?...` and show **Email verified**. Sign in afterward; verification does not sign in automatically.
+
+The deployed coursework Compose configuration also uses this preview flow when SMTP credentials are blank. Its default `FRONTEND_URL` points to the school server, so the preview link returns to the deployed app. No Gmail credentials are required for a tutor to verify a demo account; the server must have outbound access to Ethereal for preview delivery. This is a coursework demo flow, not actual email delivery. Keep the server's `DB_ROOT_PASSWORD` and `JWT_SECRET` in its private `.env`; do not commit them.
+
+If using the Vite development server instead of Docker, set the backend's `FRONTEND_URL` to `http://localhost:5173`. If the link opens another environment, correct `FRONTEND_URL` and recreate the backend container before registering again.
 
 ## Apply the configuration
 
@@ -76,7 +86,7 @@ Common SMTP errors:
 After changing credentials, recreate the backend container and resend. Never print the App Password to verify it; check only whether the variable is present.
 
 ## When the customer clicks the email link
-1. It opens the app’s Verify Email page at /verify-email?token=....
-2. The page automatically sends the one-time token to the backend. If it’s valid and not expired, the page shows “Email verified” and a Continue to login button.
-3. The customer clicks that button to go to customer login and sign in. Verification doesn’t automatically log them in.
-4. If the link is invalid or expired, the page explains that and offers a way to request another one.
+1. Registration creates a customer account with email verification pending and sends a random one-time token. Only a hash of the token is stored.
+2. The link opens `/verify-email?token=...`. The page submits the token to the backend, which accepts it only if it matches an unexpired (24-hour) token for an unverified customer. A successful verification consumes the token.
+3. The page shows **Email verified** and a **Continue to login** button. Sign in with the registered email and password; verification does not automatically sign in.
+4. An invalid, expired, or already-used link shows an error. Request a fresh link on that page; resends are limited to once every 60 seconds.

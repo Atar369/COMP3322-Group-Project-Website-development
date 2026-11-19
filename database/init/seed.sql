@@ -68,3 +68,11 @@ INSERT INTO queue_entries (user_id, party_size, queue_number, queue_date, joined
   (3, 3, 'B002', DATE(UTC_TIMESTAMP() + INTERVAL 8 HOUR), UTC_TIMESTAMP() - INTERVAL 20 MINUTE, 'called', UTC_TIMESTAMP() - INTERVAL 2 MINUTE, NULL),
   (2, 2, 'A002', DATE(UTC_TIMESTAMP() + INTERVAL 8 HOUR), UTC_TIMESTAMP() - INTERVAL 70 MINUTE, 'serving', UTC_TIMESTAMP() - INTERVAL 45 MINUTE, UTC_TIMESTAMP() - INTERVAL 40 MINUTE),
   (1, 5, 'C001', DATE(UTC_TIMESTAMP() + INTERVAL 8 HOUR), UTC_TIMESTAMP() - INTERVAL 50 MINUTE, 'cancelled', NULL, NULL);
+
+-- Fictional demo reviews; each reviewer bought the corresponding dish in a paid seed order.
+INSERT INTO dish_reviews (item_id, user_id, rating, comment) VALUES
+  (1, 1, 5, 'Tender, smoky, and balanced with the citrus.'),
+  (2, 1, 5, 'Beautifully cooked and full of flavor.'),
+  (3, 2, 4, 'A smooth classic with a subtle oak finish.'),
+  (4, 3, 5, 'Creamy, fragrant, and perfectly seasoned.'),
+  (5, 3, 4, 'Fresh seafood and a bright, silky sauce.');
