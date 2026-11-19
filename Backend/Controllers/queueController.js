@@ -177,6 +177,19 @@ async function join(req, res) {
       });
     }
 
+    const [activeOrderCheck] = await conn.query(
+      `SELECT order_id FROM orders
+       WHERE user_id = ? AND status IN ('pending', 'preparing', 'ready') AND payment_status != 'paid'
+       FOR UPDATE`,
+      [user_id]
+    );
+    if (activeOrderCheck.length > 0) {
+      await conn.rollback();
+      return res.status(409).json({ 
+        error: 'You have an active order in progress. You are already seated and cannot join the queue.' 
+      });
+    }
+
     const [bookingConflict] = await conn.query(
       `SELECT booking_id FROM bookings
        WHERE user_id = ? AND DATE(booking_date) = ? AND status IN ('booked','serving')

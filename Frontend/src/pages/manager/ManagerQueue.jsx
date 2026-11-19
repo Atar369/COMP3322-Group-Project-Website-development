@@ -6,7 +6,7 @@ import { getRestaurantTimestamp } from '../../utils/restaurantTime';
 
 const GROUPS = ['A', 'B', 'C'];
 const GROUP_RANGES = { A: '1–2 People', B: '3–6 People', C: '7+ People' };
-const AUTO_CALL_TIMEOUT_MS = 10_000;
+const AUTO_CALL_TIMEOUT_MS = 120_000;
 const DINING_SESSION_MS = 60 * 60 * 1000;
 
 function getGroupLabel(size) {
@@ -236,18 +236,6 @@ export default function ManagerQueue() {
                   }}
                 >
                   {calling ? 'Calling…' : 'Call next'}
-                </button>
-                <button
-                  className="btn secondary"
-                  disabled={toggling || cutoffReached}
-                  onClick={() => handleToggleAutoCall(group)}
-                  style={{
-                    width: '100%',
-                    opacity: cutoffReached ? 0.5 : 1,
-                    cursor: cutoffReached ? 'not-allowed' : 'pointer',
-                  }}
-                >
-                  {autoCall[group] ? 'Auto off' : 'Auto On'}
                 </button>
               </div>
             </div>

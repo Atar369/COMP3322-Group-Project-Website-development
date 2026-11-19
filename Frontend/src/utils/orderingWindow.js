@@ -1,7 +1,14 @@
 import { getRestaurantTimestamp } from './restaurantTime';
 
 export const ORDER_WINDOW_MS = 45 * 60 * 1000;
-const RESTAURANT_TIME_ZONE = 'Asia/Hong_Kong';
+const RESTAURANT_TIME_ZONE = (() => {
+  try {
+    new Intl.DateTimeFormat('en-GB', { timeZone: 'Asia/Hong_Kong' }).format(new Date());
+    return 'Asia/Hong_Kong';
+  } catch {
+    return undefined;
+  }
+})();
 
 export function isBeforeRestaurantOpening(now = new Date()) {
   return getHongKongTimeParts(now).hour < 10;

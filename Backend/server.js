@@ -43,6 +43,7 @@ app.use(
   })
 );
 app.use('/api/uploads/menu-images', express.static(menuController.MENU_IMAGE_DIR));
+app.use('/uploads/menu-images', express.static(menuController.MENU_IMAGE_DIR));
 
 // Health check
 app.get('/api/health', (_req, res) => {

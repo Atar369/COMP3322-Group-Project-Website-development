@@ -28,7 +28,6 @@ function getGroupRange(group) {
   return '7+ People';
 }
 
-// --- Display-only helpers (no effect on queue logic) ---
 const STEPS = [
   { key: 'queued', label: 'Waiting' },
   { key: 'called', label: 'Called' },
@@ -39,7 +38,7 @@ const STATUS_COPY = {
   queued: { title: 'You are in the queue', text: 'This page updates automatically when your number is called.' },
   called: { title: '🔔 Your table is ready!', text: 'Please proceed to the counter immediately to be seated. You do not need to click any button here.' },
   serving: { title: 'You are now seated', text: 'You may place your order.' },
-  missed: { title: 'You missed your turn', text: 'Please go straight to a staff member. If the number being called in your group is no more than 25 numbers after yours, they can add you back with the highest priority.' },
+  missed: { title: 'You missed your turn', text: 'You have already missed your turn once. Please see the manager to rejoin.' },
 };
 
 function PersonIcon() {
@@ -56,8 +55,6 @@ export default function Queue() {
   const [partySize, setPartySize] = useState(2);
   const [myEntry, setMyEntry] = useState(null);
   const [allQueue, setAllQueue] = useState([]);
-  const [nextTicketNumber, setNextTicketNumber] = useState('');
-  const [nextTicketNumberError, setNextTicketNumberError] = useState('');
   const [joinError, setJoinError] = useState('');
   const [joinMessage, setJoinMessage] = useState('');
   const [queueActionError, setQueueActionError] = useState('');
@@ -71,29 +68,14 @@ export default function Queue() {
     myEntryRef.current = myEntry;
   }, [myEntry]);
 
-  // Timer for the 9:00 PM queue-entry cutoff countdown
   useEffect(() => {
     const timer = setInterval(() => setNow(new Date()), 1000);
     return () => clearInterval(timer);
   }, []);
 
-  // Fetch Queue Data
   const loadAll = useCallback(async () => {
     if (!user) return;
     const requestVersion = ++queueRequestVersion.current;
-    setNextTicketNumber('');
-    setNextTicketNumberError('');
-    api.get(`/queue/next-number?party_size=${partySize}`)
-      .then(({ data }) => {
-        if (requestVersion === queueRequestVersion.current) {
-          setNextTicketNumber(data.nextQueueNumber);
-        }
-      })
-      .catch(() => {
-        if (requestVersion === queueRequestVersion.current) {
-          setNextTicketNumberError('Could not check the next queue number. Please refresh the page.');
-        }
-      });
     try {
       const [queueRes, mineRes] = await Promise.all([
         api.get('/queue'),
@@ -116,9 +98,8 @@ export default function Queue() {
     } catch {
       /* silent */
     }
-  }, [user, partySize]);
+  }, [user]);
 
-  // Setup WebSocket & Initial Load
   useEffect(() => {
     loadAll();
 
@@ -128,7 +109,7 @@ export default function Queue() {
       if (payload?.action === 'call' || payload?.action === 'auto-call') {
         const entry = myEntryRef.current;
         const calledNumber = String(payload.queueNumber || '');
-        
+
         if (
           entry?.status === 'queued'
           && calledNumber
@@ -148,10 +129,10 @@ export default function Queue() {
 
     const onCalled = payload => {
       if (!payload) return;
-      setCalledBanner({ 
-        ...payload, 
+      setCalledBanner({
+        ...payload,
         isMyCall: true,
-        message: 'Your table is ready. Please proceed to the counter immediately.' 
+        message: 'Your table is ready. Please proceed to the counter immediately.'
       });
       refresh();
       setTimeout(() => setCalledBanner(null), 15000);
@@ -191,9 +172,9 @@ export default function Queue() {
     setQueueActionError('');
     setJoinError('');
     setJoinMessage('');
-    const requestVersion = ++queueRequestVersion.current;
     try {
       await api.patch(`/queue/${myEntry.queue_id}/cancel`);
+      queueRequestVersion.current += 1;
       setPartySize(Number(myEntry.party_size));
       setMyEntry(null);
       setJoinMessage('You have left the queue. Choose a party size and select “Get queue number” to join again; no new ticket has been issued.');
@@ -208,18 +189,6 @@ export default function Queue() {
       setAllQueue(Array.isArray(response.data) ? response.data : []);
     } catch {
       setQueueActionError('You left the queue, but the public queue board could not be refreshed.');
-    }
-
-    try {
-      const nextResponse = await api.get(`/queue/next-number?party_size=${myEntry.party_size}`);
-      if (requestVersion === queueRequestVersion.current) {
-        setNextTicketNumber(nextResponse.data.nextQueueNumber);
-        setNextTicketNumberError('');
-      }
-    } catch {
-      if (requestVersion === queueRequestVersion.current) {
-        setNextTicketNumberError('Could not refresh the next queue number. Please refresh the page.');
-      }
     } finally {
       setIsLeaving(false);
     }
@@ -232,13 +201,16 @@ export default function Queue() {
       .filter(q => getGroupLabel(q.party_size) === group
         && q.status === 'called'
         && (!queueDate || String(q.queue_date).slice(0, 10) === String(queueDate).slice(0, 10)))
-      .sort((a, b) => getRestaurantTimestamp(b.called_at) - getRestaurantTimestamp(a.called_at))[0];
+      .sort((a, b) => {
+        const ta = getRestaurantTimestamp(b.called_at);
+        const tb = getRestaurantTimestamp(a.called_at);
+        return (Number.isFinite(ta) ? ta : 0) - (Number.isFinite(tb) ? tb : 0);
+      })[0];
   }
 
   const canJoin = isQueueEntryWindowOpen(now);
   const callingCountdown = getQueueCallingCountdown(now);
 
-  // Display-only values for the ticket
   const myGroup = myEntry ? getGroupLabel(myEntry.party_size) : null;
   const myGroupCall = myGroup ? getNowServing(myGroup) : null;
   const stepIndex = myEntry ? STEPS.findIndex(step => step.key === myEntry.status) : -1;
@@ -247,11 +219,10 @@ export default function Queue() {
 
   return (
     <div className="page queue-page">
-      {/* REAL-TIME BANNER (Distinguishes between calling you vs calling others) */}
       {calledBanner && (
-        <div 
-          className="queue-toast" 
-          role="alert" 
+        <div
+          className="queue-toast"
+          role="alert"
           style={calledBanner.isMyCall ? { background: '#24463a', color: '#fff' } : { background: '#d9a441', color: '#211f1b' }}
         >
           <span className="queue-toast-bell" aria-hidden="true">{calledBanner.isMyCall ? '🔔' : 'ℹ️'}</span>
@@ -280,7 +251,6 @@ export default function Queue() {
         </div>
       )}
 
-      {/* NOW CALLING */}
       <section className="queue-calling" aria-label="Now calling">
         <div className="queue-section-head">
           <h2>Now calling</h2>
@@ -305,7 +275,6 @@ export default function Queue() {
       </section>
 
       {!myEntry ? (
-        /* JOIN */
         <section className="queue-join">
           <span className="queue-eyebrow">GET A TICKET</span>
           <h2>Join the waiting list</h2>
@@ -350,17 +319,6 @@ export default function Queue() {
             Group {getGroupLabel(partySize)} · {getGroupRange(getGroupLabel(partySize))}
           </p>
 
-          <p className="queue-next-number" role="status" aria-live="polite">
-            {nextTicketNumberError
-              ? nextTicketNumberError
-              : nextTicketNumber === null
-                ? 'No tickets remain in this group today.'
-                : `If you take a ticket now, your number will be ${nextTicketNumber || 'checking…'}.`}
-          </p>
-          <p className="queue-missed-guidance">
-            If your number is missed and the number being called is no more than 25 numbers after yours, go straight to a staff member. They can add you back with the highest priority.
-          </p>
-
           {joinError && <p className="error-text">{joinError}</p>}
           {joinMessage && <p className="queue-join-text" role="status">{joinMessage}</p>}
           <button type="button" className="queue-primary-btn" onClick={handleJoin} disabled={!canJoin}>
@@ -368,7 +326,6 @@ export default function Queue() {
           </button>
         </section>
       ) : (
-        /* TICKET */
         <section className={`queue-ticket queue-ticket-${myEntry.status}`} aria-label="Your queue ticket">
           <div className="queue-ticket-zig" aria-hidden="true" />
           <div className="queue-ticket-head">
@@ -388,9 +345,9 @@ export default function Queue() {
           <div className="queue-ticket-body">
             <h3 className="queue-ticket-title">{copy.title}</h3>
             {copy.text && (
-               <p className="queue-ticket-text" style={myEntry.status === 'called' ? { color: 'var(--rust)', fontWeight: 'bold', marginTop: '8px' } : {}}>
-                 {copy.text}
-               </p>
+              <p className="queue-ticket-text" style={myEntry.status === 'called' ? { color: 'var(--rust)', fontWeight: 'bold', marginTop: '8px' } : {}}>
+                {copy.text}
+              </p>
             )}
 
             {stepIndex >= 0 && (
@@ -407,7 +364,6 @@ export default function Queue() {
                 ))}
               </ol>
             )}
-
           </div>
 
           <div className="queue-ticket-perf" aria-hidden="true" />
@@ -427,7 +383,6 @@ export default function Queue() {
             </div>
           </div>
 
-          {/* Action Buttons */}
           {['queued', 'called'].includes(myEntry.status) && (
             <div className="queue-ticket-actions">
               {queueActionError && <p className="error-text" role="alert">{queueActionError}</p>}

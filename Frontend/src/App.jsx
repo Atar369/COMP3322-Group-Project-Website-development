@@ -3,6 +3,7 @@ import { AuthProvider, useAuth } from './context/AuthContext';
 import { CartProvider } from './context/CartContext';
 import Navbar from './components/Navbar';
 import ProtectedRoute from './components/ProtectedRoute';
+import ErrorBoundary from './components/ErrorBoundary';
 
 import Welcome from './pages/Welcome';
 import HomePage from './pages/HomePage';
@@ -47,42 +48,44 @@ export default function App() {
         <BrowserRouter>
           <div className="app-shell">
             <Navbar />
-            <Routes>
-              <Route path="/" element={<Home />} />
-              <Route path="/home" element={<HomePage />} />
-              <Route path="/welcome" element={<Welcome />} />
-              <Route path="/login" element={<Navigate to="/welcome" replace />} />
-              <Route path="/login/customer" element={<CustomerLogin />} />
-              <Route path="/login/manager" element={<ManagerLogin />} />
-              <Route path="/register/customer" element={<CustomerRegister />} />
-              <Route path="/register/manager" element={<Navigate to="/welcome" replace />} />
-              <Route path="/forgot-password" element={<ForgotPassword />} />
-              <Route path="/reset-password" element={<ForgotPassword />} />
-              <Route path="/verify-email" element={<EmailVerification />} />
+            <ErrorBoundary>
+              <Routes>
+                <Route path="/" element={<Home />} />
+                <Route path="/home" element={<HomePage />} />
+                <Route path="/welcome" element={<Welcome />} />
+                <Route path="/login" element={<Navigate to="/welcome" replace />} />
+                <Route path="/login/customer" element={<CustomerLogin />} />
+                <Route path="/login/manager" element={<ManagerLogin />} />
+                <Route path="/register/customer" element={<CustomerRegister />} />
+                <Route path="/register/manager" element={<Navigate to="/welcome" replace />} />
+                <Route path="/forgot-password" element={<ForgotPassword />} />
+                <Route path="/reset-password" element={<ForgotPassword />} />
+                <Route path="/verify-email" element={<EmailVerification />} />
 
-              <Route path="/dashboard" element={<Navigate to="/home" replace />} />
-              <Route path="/view-menu" element={<ProtectedRoute role="customer"><ViewMenu /></ProtectedRoute>} />
-              <Route path="/menu" element={<ProtectedRoute role="customer"><Menu /></ProtectedRoute>} />
-              <Route path="/cart" element={<ProtectedRoute role="customer"><Cart /></ProtectedRoute>} />
-              <Route path="/orders/:id" element={<ProtectedRoute role="customer"><OrderStatus /></ProtectedRoute>} />
-              <Route path="/order-management" element={<ProtectedRoute role="customer"><OrderManagement /></ProtectedRoute>} />
-              <Route path="/order-history/reviews" element={<ProtectedRoute role="customer"><BillDishReviews /></ProtectedRoute>} />
-              <Route path="/order-history" element={<ProtectedRoute role="customer"><OrderHistory /></ProtectedRoute>} />
-              <Route path="/queue" element={<ProtectedRoute role="customer"><Queue /></ProtectedRoute>} />
-              <Route path="/queue-history" element={<ProtectedRoute role="customer"><QueueHistory /></ProtectedRoute>} />
-              <Route path="/booking" element={<ProtectedRoute role="customer"><Booking /></ProtectedRoute>} />
-              <Route path="/booking-management" element={<ProtectedRoute role="customer"><BookingManagement /></ProtectedRoute>} />
-              <Route path="/booking-history" element={<ProtectedRoute role="customer"><BookingHistory /></ProtectedRoute>} />
-              <Route path="/profile" element={<ProtectedRoute><ProfilePage /></ProtectedRoute>} />
+                <Route path="/dashboard" element={<Navigate to="/home" replace />} />
+                <Route path="/view-menu" element={<ProtectedRoute role="customer"><ViewMenu /></ProtectedRoute>} />
+                <Route path="/menu" element={<ProtectedRoute role="customer"><Menu /></ProtectedRoute>} />
+                <Route path="/cart" element={<ProtectedRoute role="customer"><Cart /></ProtectedRoute>} />
+                <Route path="/orders/:id" element={<ProtectedRoute role="customer"><OrderStatus /></ProtectedRoute>} />
+                <Route path="/order-management" element={<ProtectedRoute role="customer"><OrderManagement /></ProtectedRoute>} />
+                <Route path="/order-history/reviews" element={<ProtectedRoute role="customer"><BillDishReviews /></ProtectedRoute>} />
+                <Route path="/order-history" element={<ProtectedRoute role="customer"><OrderHistory /></ProtectedRoute>} />
+                <Route path="/queue" element={<ProtectedRoute role="customer"><Queue /></ProtectedRoute>} />
+                <Route path="/queue-history" element={<ProtectedRoute role="customer"><QueueHistory /></ProtectedRoute>} />
+                <Route path="/booking" element={<ProtectedRoute role="customer"><Booking /></ProtectedRoute>} />
+                <Route path="/booking-management" element={<ProtectedRoute role="customer"><BookingManagement /></ProtectedRoute>} />
+                <Route path="/booking-history" element={<ProtectedRoute role="customer"><BookingHistory /></ProtectedRoute>} />
+                <Route path="/profile" element={<ProtectedRoute><ProfilePage /></ProtectedRoute>} />
 
-              <Route path="/manager/menu" element={<ProtectedRoute role="manager"><ManagerMenu /></ProtectedRoute>} />
-              <Route path="/manager/orders" element={<ProtectedRoute role="manager"><ManagerOrders /></ProtectedRoute>} />
-              <Route path="/manager/queue" element={<ProtectedRoute role="manager"><ManagerQueue /></ProtectedRoute>} />
-              <Route path="/manager/queue-history" element={<ProtectedRoute role="manager"><ManagerQueueHistory /></ProtectedRoute>} />
-              <Route path="/manager/bookings" element={<ProtectedRoute role="manager"><ManagerBookings /></ProtectedRoute>} />
-              <Route path="/manager/dashboard" element={<ProtectedRoute role="manager"><ManagerDashboard /></ProtectedRoute>} />
-              <Route path="/manager/create-manager" element={<ProtectedRoute role="manager"><CreateManager /></ProtectedRoute>} />
-            </Routes>
+                <Route path="/manager/menu" element={<ProtectedRoute role="manager"><ManagerMenu /></ProtectedRoute>} />
+                <Route path="/manager/orders" element={<ProtectedRoute role="manager"><ManagerOrders /></ProtectedRoute>} />
+                <Route path="/manager/queue" element={<ProtectedRoute role="manager"><ManagerQueue /></ProtectedRoute>} />
+                <Route path="/manager/queue-history" element={<ProtectedRoute role="manager"><ManagerQueueHistory /></ProtectedRoute>} />
+                <Route path="/manager/bookings" element={<ProtectedRoute role="manager"><ManagerBookings /></ProtectedRoute>} />
+                <Route path="/manager/dashboard" element={<ProtectedRoute role="manager"><ManagerDashboard /></ProtectedRoute>} />
+                <Route path="/manager/create-manager" element={<ProtectedRoute role="manager"><CreateManager /></ProtectedRoute>} />
+              </Routes>
+            </ErrorBoundary>
           </div>
         </BrowserRouter>
       </CartProvider>

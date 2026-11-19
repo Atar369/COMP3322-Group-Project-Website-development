@@ -1,4 +1,11 @@
-const RESTAURANT_TIME_ZONE = 'Asia/Hong_Kong';
+const RESTAURANT_TIME_ZONE = (() => {
+  try {
+    new Intl.DateTimeFormat('en-GB', { timeZone: 'Asia/Hong_Kong' }).format(new Date());
+    return 'Asia/Hong_Kong';
+  } catch {
+    return undefined;
+  }
+})();
 
 function parseUtcTimestamp(value) {
   if (!value) return NaN;
