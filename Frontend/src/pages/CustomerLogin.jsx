@@ -21,7 +21,7 @@ export default function CustomerLogin() {
     <LoginLayout
       title="Customer login"
       subtitle="Sign in to book a table, order food and join the queue."
-      hint="Demo customer: alice@example.com (password: password)"
+      hint="Demo customer: alex@example.com (password: password)"
       image="/login-images/login-customer.jpg"
       onSubmit={handleLogin}
     >
